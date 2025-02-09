@@ -1,0 +1,42 @@
+[package]
+name = "flashbang"
+version = "0.1.0"
+authors = ["viandoxdev <titouangoulois29@gmail.com>"]
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+dioxus = { version = "0.6.0", features = [] }
+typst = "0.12"
+typst-svg = "0.12"
+typst-kit = {version = "0.12", default-features = false, features = ["embed-fonts"]}
+comemo = "0.4"
+nom = "8.0"
+smallvec = "1.13"
+slotmap = "1.0"
+itertools = "0.14"
+parking_lot = "0.12"
+dioxus-free-icons = { version = "0.9.0", features = ["font-awesome-solid", "hero-icons-solid", "bootstrap"]}
+rand = { version = "0.9.0", default-features = false, features = ["small_rng", "std"]}
+dioxus-sdk = { version = "0.6.0", features = ["storage"] }
+tokio = { version = "1.33", features = ["sync"] }
+serde = "1.0.163"
+
+[features]
+default = ["desktop"]
+web = ["dioxus/web"]
+desktop = ["dioxus/desktop"]
+mobile = ["dioxus/mobile"]
+
+[profile]
+
+[profile.wasm-dev]
+inherits = "dev"
+opt-level = 1
+
+[profile.server-dev]
+inherits = "dev"
+
+[profile.android-dev]
+inherits = "dev"
