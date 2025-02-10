@@ -2,7 +2,7 @@
 
 #show: setup
 
-#card("Taylor-Langrange", ("Analyse.Dérivation", "Analyse.Taylor"))
+#card("anatl", "Taylor-Langrange", ("Analyse.Dérivation", "Analyse.Taylor"))
 
 Théorème de Taylor-Lagrange, et conditions d'application.
 
@@ -15,7 +15,7 @@ $
   f(b) = sum_(k = 0)^(n) f^((k))(a) (x - a)^k / (k!) + f^(n+1) (c) (x - a)^(n+1) / ((n+1)!)
 $
 
-#card("Taylor reste intégrale", ("Analyse.Intégration", "Analyse.Taylor"))
+#card("anatlri", "Taylor reste intégrale", ("Analyse.Intégration", "Analyse.Taylor"))
 
 Théorème de Taylor reste intégrale, et conditions d'application.
 
@@ -27,7 +27,7 @@ $
   f(b) = sum_(k = 0)^(n) f^((k))(a) (x - a)^k / (k!) + integral_a^b f^((n + 1)) (t) (b - t)^n / (n!) dif t
 $
 
-#card("Test", ("Test",))
+#card("test01", "Test", ("Test",))
 
 This is a test card
 
@@ -35,7 +35,7 @@ This is a test card
 
 #lorem(100)
 
-#card("Filler", ("A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"))
+#card("filler", "Filler", ("A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"))
 
 $
   ~^A_B

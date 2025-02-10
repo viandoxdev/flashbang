@@ -57,7 +57,7 @@ impl typst::World for TypstWrapper {
     fn book(&self) -> &LazyHash<FontBook> {
         &self.book
     }
-    fn file(&self, id: typst::syntax::FileId) -> FileResult<typst::foundations::Bytes> {
+    fn file(&self, _id: typst::syntax::FileId) -> FileResult<typst::foundations::Bytes> {
         FileResult::Err(FileError::AccessDenied)
     }
     fn font(&self, index: usize) -> Option<Font> {

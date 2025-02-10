@@ -2,9 +2,10 @@ use std::sync::{Arc, LazyLock};
 
 use crate::cards::{CardHandle, CardStore, Rating, SourceConfig, RATINGS};
 use crate::settings::Settings;
+use crate::storage::Storable;
 use crate::typst_wrap::TypstWrapper;
 use crate::AppState;
-use dioxus::prelude::*;
+use dioxus::{prelude::*, CapturedError};
 use itertools::Itertools;
 use parking_lot::Mutex;
 use slotmap::SecondaryMap;
@@ -74,7 +75,11 @@ pub fn Results(results: SecondaryMap<CardHandle, Rating>) -> Element {
 
 #[component]
 pub fn Deck(width: u32, cards: ReadOnlySignal<Vec<CardHandle>>) -> Element {
-    let settings: Signal<Settings> = use_context();
+    if cards.is_empty() {
+        Err(CapturedError::from_display("No cards in deck"))?
+    }
+
+    let settings: Signal<Storable<Settings>> = use_context();
 
     let config = SourceConfig {
         page_width: (width.saturating_sub(50)) * 3 / 4,
@@ -83,10 +88,11 @@ pub fn Deck(width: u32, cards: ReadOnlySignal<Vec<CardHandle>>) -> Element {
 
     let pages = if width > 0 {
         let store = STORE.lock();
-        let content = store.build_source(cards().iter().copied(), config);
+        let content = store.build_source(cards().iter().copied(), config)?;
         typst::compile(&TypstWrapper::new("./", &content))
             .output
-            .map_or_else(|_| vec![], |doc| doc.pages)
+            .map(|doc| doc.pages)
+            .map_err(|err| CapturedError::from_display(format!("{err:?}")))?
     } else {
         vec![]
     };

@@ -4,7 +4,7 @@
   doc
 }
 
-#let card(name, tags) = {
+#let card(id, name, tags) = {
   v(1em)
   box(
     stroke: (left: 2pt + red),

@@ -1,5 +1,9 @@
 /* App-wide styling */
 
+svg {
+    shape-rendering: geometricPrecision;
+}
+
 button {
     -webkit-tap-highlight-color: transparent;
 }
@@ -211,15 +215,21 @@ body {
     color: var(--fg);
     font-weight: bold;
     font-size: 1.5em;
+    cursor: pointer;
 }
 
 .deck .controls button:hover {
-    filter: brightness(130%);
+    filter: brightness(110%);
 }
 
 .deck .controls .reveal {
     background-color: var(--bg-light);
 }
+
+.deck .controls button.reveal:hover {
+    filter: brightness(140%);
+}
+
 .deck .controls .rate-again,
 .deck .controls .rate-hard,
 .deck .controls .rate-good,
@@ -256,7 +266,7 @@ body {
 }
 
 .home button:hover {
-    filter: brightness(120%);
+    filter: brightness(110%);
 }
 
 .home .study svg {
@@ -544,9 +554,17 @@ body {
     font-weight: bold;
     font-size: 2em;
     background-color: var(--accent);
-    color: back;
+    color: black;
     cursor: pointer;
     width: calc(100% - 2rem);
+    transition: background 0.2s;
+}
+
+.selection .footer .go.locked:hover,
+.selection .footer .go.locked {
+    background: var(--fg-darker);
+    filter: initial;
+    cursor: inherit;
 }
 
 .selection .footer .go:hover {
@@ -587,4 +605,121 @@ body {
 .settings .item .extra {
     grid-area: extra;
     font-weight: bold;
+}
+
+/* ERROR */
+
+.error {
+    display: flex;
+    flex-direction: column;
+    flex-grow: 2;
+    align-items: center;
+    justify-content: center;
+    gap: 1em;
+    padding: 1em;
+}
+
+.error svg {
+    width: 30vmin;
+    height: 30vmin;
+    color: var(--accent);
+}
+
+.error .label {
+    font-size: 1.5em;
+    font-weight: bold;
+}
+
+.error .debug {
+    display: flex;
+    flex-direction: column;
+    background-color: var(--bg-light);
+    padding: 1em;
+    border-radius: 0.5em;
+    width: calc(100% - 2em);
+}
+
+.error .debug summary {
+    font-weight: bold;
+    color: var(--fg-darker);
+}
+
+.error .debug .more {
+    display: flex;
+    flex-direction: column;
+    margin-top: 1em;
+    background: var(--bg);
+    border-radius: 0.5em;
+    padding: 0.5em;
+}
+
+.error .debug .more .item {
+    color: #db3939;
+}
+
+.error .debug .more .item::before {
+    content: "- ";
+}
+
+/* POPUP */
+
+.popup-wrap {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: rgba(0, 0, 0, 0.4);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.popup-wrap .popup {
+    display: grid;
+    background: var(--bg-light);
+    padding: 1.2em;
+    border-radius: 0.5em;
+    width: 70vw;
+    grid-template-areas: "content content" "button-left button-right";
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto 2em;
+    gap: 1em;
+}
+
+.popup-wrap .popup button {
+    width: auto;
+    height: auto;
+    background: var(--accent);
+    color: var(--accent-fg);
+    font-weight: bold;
+    font-size: 1.1em;
+    border-radius: 0.5em;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.popup-wrap .popup button:hover {
+    filter: brightness(94%);
+}
+
+.popup-wrap .popup span {
+    grid-area: content;
+    font-size: 1.2em;
+    font-weight: bold;
+}
+
+.popup-wrap .popup button.left {
+    grid-area: button-left;
+}
+
+.popup-wrap .popup button.right {
+    grid-area: button-right;
+}
+
+.popup-wrap .popup button.wide {
+    grid-area: button-right / button-left / button-left / button-right;
 }

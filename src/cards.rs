@@ -4,12 +4,10 @@
 //!  - building typst source files
 
 use std::collections::HashMap;
-use std::convert::Infallible;
 use std::error::Error;
 use std::fmt::Display;
 use std::iter::once;
 use std::ops::Deref;
-use std::str::FromStr;
 
 use itertools::Itertools;
 use slotmap::SlotMap;
@@ -50,6 +48,7 @@ impl CardPath {
 #[derive(Debug, Clone)]
 pub struct Card {
     pub name: String,
+    pub id: String,
     pub paths: Vec<CardPath>,
     /// Typst source for the question
     question: String,
@@ -63,7 +62,7 @@ pub struct Card {
 pub const RATINGS: [Rating; 4] = [Rating::Again, Rating::Hard, Rating::Good, Rating::Easy];
 
 /// Rating of how well a card was answered
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum Rating {
     Again,
     Hard,
@@ -155,44 +154,35 @@ impl CardStore {
         &self,
         cards: impl IntoIterator<Item = CardHandle>,
         config: SourceConfig,
-    ) -> String {
+    ) -> Result<String, std::io::Error> {
         use std::io::Write;
-
-        // TODO: Make this prettier (try block ?)
-        // Also the writelns are ugly
-        fn inner(
-            store: &CardStore,
-            cards: impl IntoIterator<Item = CardHandle>,
-            config: SourceConfig,
-        ) -> Result<String, std::io::Error> {
-            let mut w = Vec::new();
-            writeln!(&mut w, "#import \"cards_internal.typ\": *")?;
-            writeln!(&mut w, "#show: setup")?;
-            writeln!(&mut w, "#set page(width: {}pt)", config.page_width)?;
-            writeln!(&mut w, "#set text(size: {}pt)", config.text_size)?;
-            for card in cards {
-                let card = &store.cards[card];
-                write!(&mut w, "#card(\"{}\", (", card.name)?;
-                for path in &card.paths {
-                    write!(&mut w, "\"")?;
-                    for chunk in
-                        Itertools::intersperse(path.iter().map(|&t| store.tags[t].as_str()), ".")
-                    {
-                        write!(&mut w, "{}", chunk)?;
-                    }
-                    write!(&mut w, "\",")?;
+        let mut w = Vec::new();
+        writeln!(&mut w, "#import \"cards_internal.typ\": *")?;
+        writeln!(&mut w, "#show: setup")?;
+        writeln!(&mut w, "#set page(width: {}pt)", config.page_width)?;
+        writeln!(&mut w, "#set text(size: {}pt)", config.text_size)?;
+        for card in cards {
+            let card = &self.cards[card];
+            write!(&mut w, "#card(\"{}\", \"{}\", (", card.id, card.name)?;
+            for path in &card.paths {
+                write!(&mut w, "\"")?;
+                for chunk in
+                    Itertools::intersperse(path.iter().map(|&t| self.tags[t].as_str()), ".")
+                {
+                    write!(&mut w, "{}", chunk)?;
                 }
-                writeln!(&mut w, "))")?;
-
-                write!(&mut w, "{}", card.question)?;
-                writeln!(&mut w, "#answer")?;
-                write!(&mut w, "{}", card.answer)?;
+                write!(&mut w, "\",")?;
             }
+            writeln!(&mut w, "))")?;
 
-            Ok(String::from_utf8(w).unwrap())
+            write!(&mut w, "{}", card.question)?;
+            writeln!(&mut w, "#answer")?;
+            write!(&mut w, "{}", card.answer)?;
         }
 
-        inner(self, cards, config).unwrap()
+        String::from_utf8(w).map_err(|_| {
+            std::io::Error::new(std::io::ErrorKind::Other, "Couldn't parse bytes to string")
+        })
     }
 
     /// Load a typst card source file into the store
@@ -217,9 +207,10 @@ impl CardStore {
             Ok((input, content))
         }
 
-        fn card_header(input: &str) -> IResult<&str, (&str, Vec<&str>)> {
+        fn card_header(input: &str) -> IResult<&str, (&str, &str, Vec<&str>)> {
             let (input, _) = (tag("#"), ws(tag("card"))).parse(input)?;
-            let (input, (_, name, _)) = (tag("("), ws(string), tag(",")).parse(input)?;
+            let (input, (_, id, _)) = (tag("("), ws(string), tag(",")).parse(input)?;
+            let (input, (name, _)) = (ws(string), tag(",")).parse(input)?;
             let (input, paths) = delimited(
                 ws(tag("(")),
                 terminated(separated_list0(ws(tag(",")), string), opt(ws(tag(",")))),
@@ -227,16 +218,16 @@ impl CardStore {
             )
             .parse(input)?;
             let (input, _) = ws(tag(")")).parse(input)?;
-            Ok((input, (name, paths)))
+            Ok((input, (id, name, paths)))
         }
 
-        fn card(input: &str) -> IResult<&str, (&str, Vec<&str>, &str, &str)> {
-            let (input, (name, paths)) = card_header(input)?;
+        fn card(input: &str) -> IResult<&str, (&str, &str, Vec<&str>, &str, &str)> {
+            let (input, (id, name, paths)) = card_header(input)?;
             let (input, (question, _)) = (take_until("#answer"), tag("#answer")).parse(input)?;
             let (input, answer) = take_until::<&str, &str, Error<&str>>("#card")
                 .parse(input)
                 .unwrap_or(("", input));
-            Ok((input, (name, paths, question, answer)))
+            Ok((input, (id, name, paths, question, answer)))
         }
 
         // Skip header
@@ -249,13 +240,14 @@ impl CardStore {
         let (_, (cards, _)) = many_till(card, eof).parse(content)?;
 
         // Resolve tags, names, handles
-        for (name, paths, question, answer) in cards {
+        for (id, name, paths, question, answer) in cards {
             let paths = paths
                 .into_iter()
                 .map(|s| CardPath::from_str(s, self))
                 .collect();
 
             self.cards.insert_with_key(|k| Card {
+                id: id.to_owned(),
                 name: name.to_owned(),
                 paths,
                 question: question.to_owned(),

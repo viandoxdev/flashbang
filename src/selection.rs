@@ -1,17 +1,15 @@
 use std::{
     collections::HashMap,
     hash::{DefaultHasher, Hash, Hasher},
-    iter::{once, FilterMap},
+    iter::once,
     sync::Arc,
 };
 
-use dioxus::{logger::tracing::info, prelude::*};
-use dioxus_elements::img::usemap;
+use dioxus::prelude::*;
 use dioxus_free_icons::{
     icons::fa_solid_icons::{FaChevronRight, FaFile, FaFolder},
     Icon,
 };
-use document::document;
 use itertools::Itertools;
 use rand::{seq::SliceRandom, SeedableRng};
 use slotmap::{Key, SecondaryMap};
@@ -20,6 +18,7 @@ use smallvec::{smallvec, SmallVec};
 use crate::{
     cards::{CardHandle, Tag},
     deck::STORE,
+    popup::Popup,
     AppState,
 };
 
@@ -221,6 +220,7 @@ pub fn Selection(deck: Signal<Vec<CardHandle>>) -> Element {
 
     let mut pred = use_context_provider(|| Signal::new(Vec::<Tag>::new()));
     let mut parent = use_context_provider(|| Signal::new(tree.root));
+    let mut empty_deck_popup = use_signal(|| false);
 
     let cards_enabled = Arc::new({
         let mut map = SecondaryMap::new();
@@ -280,12 +280,29 @@ pub fn Selection(deck: Signal<Vec<CardHandle>>) -> Element {
            dioxus.send(Math.random());
            "#,
         );
-        eval.recv::<f64>().await.unwrap()
+        eval.recv::<f64>().await.unwrap_or_default()
     });
+
+    let enabled_count = {
+        let cards_enabled = cards_enabled.clone();
+        use_memo(move || {
+            let mut count = 0;
+            for s in cards_enabled.values() {
+                if s() {
+                    count += 1;
+                }
+            }
+            count
+        })
+    };
 
     let start = {
         let cards_enabled = cards_enabled.clone();
         move |_| {
+            if !cards_enabled.iter().any(|(_, s)| s()) {
+                return;
+            }
+
             // TODO: Find a cleaner way to seed this
 
             // We hash a bunch of random looking data together with a single u64 worth of
@@ -307,19 +324,6 @@ pub fn Selection(deck: Signal<Vec<CardHandle>>) -> Element {
             let mut state: Signal<AppState> = use_context();
             state.set(AppState::Deck);
         }
-    };
-
-    let enabled_count = {
-        let cards_enabled = cards_enabled.clone();
-        use_memo(move || {
-            let mut count = 0;
-            for s in cards_enabled.values() {
-                if s() {
-                    count += 1;
-                }
-            }
-            count
-        })
     };
 
     rsx! {
@@ -361,7 +365,6 @@ pub fn Selection(deck: Signal<Vec<CardHandle>>) -> Element {
                             let cards_enabled = cards_enabled.clone();
                             let tree = tree.clone();
                             move |on| {
-                                let store = STORE.lock();
                                 tree.iter_from(tag)
                                     .for_each(|c| {
                                         let mut sig = cards_enabled[c];
@@ -382,9 +385,22 @@ pub fn Selection(deck: Signal<Vec<CardHandle>>) -> Element {
             div {
                 class: "footer",
                 button {
-                    class: "go",
+                    class: if enabled_count() > 0 { "go" } else { "go locked" },
                     onclick: start,
                     "Start"
+                }
+            }
+
+            if empty_deck_popup() {
+                Popup {
+                    span {
+                        "You need to select at least one card to study !"
+                    }
+                    button {
+                        class: "wide",
+                        onclick: move |_| empty_deck_popup.set(false),
+                        "Back"
+                    }
                 }
             }
         }
