@@ -1,4 +1,7 @@
-use deck::Deck;
+use std::sync::Arc;
+
+use cards::CardStore;
+use deck::{init_store, Deck};
 use dioxus::{logger::tracing::Level, prelude::*};
 use dioxus_free_icons::{
     icons::{
@@ -10,9 +13,11 @@ use dioxus_free_icons::{
     Icon,
 };
 
+use parking_lot::Mutex;
 use selection::Selection;
 use settings::{Settings, SettingsComponent};
 use storage::Storable;
+use tracking::{init_tracking, TrackedData};
 
 mod cards;
 mod deck;
@@ -30,6 +35,16 @@ const FONT_LEAGUE_GOTHIC: Asset = asset!("/assets/League-Gothic.woff2");
 
 fn main() {
     let _ = dioxus::logger::init(Level::INFO);
+
+    init_store(|| {
+        let mut store = CardStore::default();
+        store
+            .load(include_str!("../test.typ"))
+            .expect("Failure on load");
+        store
+    });
+
+    init_tracking();
 
     dioxus::launch(App);
 }

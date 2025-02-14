@@ -17,7 +17,7 @@ use smallvec::{smallvec, SmallVec};
 
 use crate::{
     cards::{CardHandle, Tag},
-    deck::STORE,
+    deck::store,
     popup::Popup,
     AppState,
 };
@@ -52,7 +52,7 @@ impl TagTree {
             },
         );
 
-        let store = STORE.lock();
+        let store = store().lock();
 
         for card in store.cards.values() {
             for path in &card.paths {
@@ -149,7 +149,7 @@ pub fn ItemTag(tag: Tag, enabled: ReadOnlySignal<bool>, onactivate: EventHandler
     let mut pred = use_context::<Signal<Vec<Tag>>>();
     let mut parent = use_context::<Signal<Tag>>();
 
-    let store = STORE.lock();
+    let store = store().lock();
     let name = store.tags[tag].clone();
 
     rsx! {
@@ -185,7 +185,7 @@ pub fn ItemTag(tag: Tag, enabled: ReadOnlySignal<bool>, onactivate: EventHandler
 
 #[component]
 fn ItemCard(card: CardHandle, enabled: Signal<bool>) -> Element {
-    let store = STORE.lock();
+    let store = store().lock();
     let name = store.cards[card].name.clone();
 
     rsx! {
@@ -224,7 +224,7 @@ pub fn Selection(deck: Signal<Vec<CardHandle>>) -> Element {
 
     let cards_enabled = Arc::new({
         let mut map = SecondaryMap::new();
-        let store = STORE.lock();
+        let store = store().lock();
 
         for card in store.cards.keys() {
             map.insert(card, use_signal(|| false));
@@ -234,7 +234,7 @@ pub fn Selection(deck: Signal<Vec<CardHandle>>) -> Element {
     });
 
     let tags_enabled = Arc::new({
-        let store = STORE.lock();
+        let store = store().lock();
         store
             .tags
             .keys()
@@ -260,7 +260,7 @@ pub fn Selection(deck: Signal<Vec<CardHandle>>) -> Element {
     });
 
     let pwd = use_memo(move || {
-        let store = STORE.lock();
+        let store = store().lock();
         let path_elements = pred
             .iter()
             .map(|t| *t)

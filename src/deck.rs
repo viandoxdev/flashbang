@@ -1,8 +1,9 @@
-use std::sync::{Arc, LazyLock};
+use std::sync::{Arc, LazyLock, OnceLock};
 
 use crate::cards::{CardHandle, CardStore, Rating, SourceConfig, RATINGS};
 use crate::settings::Settings;
 use crate::storage::Storable;
+use crate::tracking::tracking;
 use crate::typst_wrap::TypstWrapper;
 use crate::AppState;
 use dioxus::{prelude::*, CapturedError};
@@ -10,16 +11,19 @@ use itertools::Itertools;
 use parking_lot::Mutex;
 use slotmap::SecondaryMap;
 
-pub(crate) static STORE: LazyLock<Arc<Mutex<CardStore>>> = LazyLock::new(|| {
-    let mut store = CardStore::default();
-    store
-        .load(include_str!("../test.typ"))
-        .expect("Failure on load");
-    Arc::new(Mutex::new(store))
-});
+static STORE: OnceLock<Arc<Mutex<CardStore>>> = OnceLock::new();
+
+pub fn store() -> &'static Arc<Mutex<CardStore>> {
+    STORE.get().unwrap()
+}
+
+pub fn init_store(store: impl FnOnce() -> CardStore) {
+    STORE.get_or_init(|| Arc::new(Mutex::new(store())));
+}
 
 #[component]
 pub fn Results(results: SecondaryMap<CardHandle, Rating>) -> Element {
+    let results = Arc::new(results);
     let by_ratings = results.values().copied().counts();
     let score = results.values().map(|r| r.score()).sum::<u32>() * 100 / (3 * results.len() as u32);
     rsx! {
@@ -64,8 +68,18 @@ pub fn Results(results: SecondaryMap<CardHandle, Rating>) -> Element {
             button {
                 class: "finish",
                 onclick: move |_| {
-                    let mut state = use_context::<Signal<AppState>>();
-                    state.set(AppState::Home);
+                    let results = results.clone();
+                    spawn(async move {
+                        let mut eval = document::eval(r#"dioxus.send(new Date().getTime());"#);
+                        let timestamp: u64 = eval.recv().await.unwrap_or_default();
+
+                        let mut tracking = tracking().lock();
+                        tracking.add_session(timestamp, results.iter().map(|(k, &v)| (k, v)));
+                        tracking.save();
+
+                        let mut state = use_context::<Signal<AppState>>();
+                        state.set(AppState::Home);
+                    });
                 },
                 "Finish !"
             }
@@ -87,7 +101,7 @@ pub fn Deck(width: u32, cards: ReadOnlySignal<Vec<CardHandle>>) -> Element {
     };
 
     let pages = if width > 0 {
-        let store = STORE.lock();
+        let store = store().lock();
         let content = store.build_source(cards().iter().copied(), config)?;
         typst::compile(&TypstWrapper::new("./", &content))
             .output
