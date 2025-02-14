@@ -13,17 +13,18 @@ use dioxus_free_icons::{
     Icon,
 };
 
-use parking_lot::Mutex;
 use selection::Selection;
 use settings::{Settings, SettingsComponent};
+use stats::Stats;
 use storage::Storable;
-use tracking::{init_tracking, TrackedData};
+use tracking::init_tracking;
 
 mod cards;
 mod deck;
 mod popup;
 mod selection;
 mod settings;
+mod stats;
 mod storage;
 mod tracking;
 mod typst_wrap;
@@ -56,16 +57,6 @@ enum AppState {
     Selection,
     Stats,
     Settings,
-}
-
-#[component]
-fn Stats() -> Element {
-    rsx! {
-        div {
-            class: "stats",
-            "WIP (STATS)"
-        }
-    }
 }
 
 #[component]

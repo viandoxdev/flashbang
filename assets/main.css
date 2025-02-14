@@ -723,3 +723,90 @@ body {
 .popup-wrap .popup button.wide {
     grid-area: button-right / button-left / button-left / button-right;
 }
+
+/* STATS */
+
+.stats {
+    display: flex;
+    flex-direction: column;
+    flex-grow: 2;
+    padding: 1em;
+    gap: 1em;
+}
+
+.stats .sessions,
+.stats .cards {
+    background-color: var(--bg-light);
+    padding: 1em;
+    border-radius: 0.5em;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6em;
+}
+.stats .cards::before,
+.stats .sessions::before {
+    content: "Sessions";
+    font-weight: bold;
+    display: block;
+    font-size: 1.4em;
+    color: var(--accent);
+}
+.stats .cards::before {
+    content: "Cards";
+}
+
+.stats .sessions .session {
+    background-color: var(--bg);
+    padding: 0.5em;
+    border-radius: 0.5em;
+}
+
+.stats .sessions .session .size {
+    font-weight: bold;
+}
+
+.stats .cards .card {
+    background-color: var(--bg);
+    padding: 0.5em;
+    border-radius: 0.5em;
+    display: grid;
+    grid-template-rows: 1fr auto;
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas: "id score" "views views";
+}
+
+.stats .cards .card .id {
+    grid-area: id;
+    color: var(--fg-darker);
+    font-weight: bold;
+}
+
+.stats .cards .card .score {
+    grid-area: score;
+    justify-self: self-end;
+    font-weight: bold;
+    font-family: "League Gothic";
+    color: var(--accent);
+}
+
+.stats .cards .card .views {
+    grid-area: views;
+    display: flex;
+    flex-direction: column;
+}
+
+.stats .cards .card .views .view {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-areas: "rating timestamp";
+}
+
+.stats .cards .card .views .view .rating {
+    grid-area: rating;
+    font-family: "Agbalumo";
+}
+
+.stats .cards .card .views .view .timestamp {
+    grid-area: timestamp;
+    color: var(--fg-darker);
+}

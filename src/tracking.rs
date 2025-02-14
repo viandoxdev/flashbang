@@ -24,11 +24,11 @@ pub fn init_tracking() {
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct CardView {
-    pub timestamp: u64,
+    pub timestamp: i64,
     pub rating: Rating,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct CardInfo {
     pub score: i8,
     pub views: Vec<CardView>,
@@ -36,7 +36,7 @@ pub struct CardInfo {
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct Session {
-    pub timestamp: u64,
+    pub timestamp: i64,
     pub size: u16,
     pub score: u8,
 }
@@ -50,7 +50,7 @@ pub struct TrackedData {
 impl TrackedData {
     pub fn add_session(
         &mut self,
-        timestamp: u64,
+        timestamp: i64,
         answers: impl IntoIterator<Item = (CardHandle, Rating)>,
     ) {
         let mut size = 0u16;
@@ -59,7 +59,10 @@ impl TrackedData {
         for (card, rating) in answers {
             let view = CardView { timestamp, rating };
             let id = &store.cards[card].id;
-            let card = self.cards_info.get_mut(id).unwrap();
+            let card = self
+                .cards_info
+                .entry(id.to_owned())
+                .or_insert_with(CardInfo::default);
 
             card.views.push(view);
             card.score = (card.score + rating.points()).clamp(0, 100);

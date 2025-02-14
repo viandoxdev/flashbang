@@ -10,6 +10,7 @@ use dioxus::{prelude::*, CapturedError};
 use itertools::Itertools;
 use parking_lot::Mutex;
 use slotmap::SecondaryMap;
+use time::OffsetDateTime;
 
 static STORE: OnceLock<Arc<Mutex<CardStore>>> = OnceLock::new();
 
@@ -70,9 +71,7 @@ pub fn Results(results: SecondaryMap<CardHandle, Rating>) -> Element {
                 onclick: move |_| {
                     let results = results.clone();
                     spawn(async move {
-                        let mut eval = document::eval(r#"dioxus.send(new Date().getTime());"#);
-                        let timestamp: u64 = eval.recv().await.unwrap_or_default();
-
+                        let timestamp = OffsetDateTime::now_utc().unix_timestamp();
                         let mut tracking = tracking().lock();
                         tracking.add_session(timestamp, results.iter().map(|(k, &v)| (k, v)));
                         tracking.save();
