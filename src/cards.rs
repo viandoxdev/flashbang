@@ -88,15 +88,6 @@ impl Rating {
             Rating::Easy => 3,
         }
     }
-
-    pub fn points(&self) -> i8 {
-        match self {
-            Rating::Again => -10,
-            Rating::Hard => -5,
-            Rating::Good => 5,
-            Rating::Easy => 10,
-        }
-    }
 }
 
 impl Display for Rating {
@@ -266,9 +257,5 @@ impl CardStore {
         }
 
         Ok(())
-    }
-
-    pub fn all_cards(&self) -> Vec<CardHandle> {
-        self.cards.keys().collect()
     }
 }

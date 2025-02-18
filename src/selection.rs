@@ -2,23 +2,32 @@ use std::{
     collections::HashMap,
     hash::{DefaultHasher, Hash, Hasher},
     iter::once,
+    rc::Rc,
     sync::Arc,
+    time::Duration,
 };
 
 use dioxus::prelude::*;
 use dioxus_free_icons::{
-    icons::fa_solid_icons::{FaChevronRight, FaFile, FaFolder},
+    icons::{
+        fa_solid_icons::{FaChevronRight, FaFile, FaFolder},
+        go_icons::GoCalendar,
+        md_action_icons::MdFlipToBack,
+        md_content_icons::MdSelectAll,
+    },
     Icon,
 };
 use itertools::Itertools;
 use rand::{seq::SliceRandom, SeedableRng};
 use slotmap::{Key, SecondaryMap};
 use smallvec::{smallvec, SmallVec};
+use time::OffsetDateTime;
 
 use crate::{
     cards::{CardHandle, Tag},
     deck::store,
-    popup::Popup,
+    popup::Toaster,
+    tracking::tracking,
     AppState,
 };
 
@@ -64,15 +73,10 @@ impl TagTree {
                     if !parent_edges.children.contains(&tag) {
                         parent_edges.children.push(tag);
                     }
-                    if !edges.contains_key(&tag) {
-                        edges.insert(
-                            tag,
-                            Edges {
-                                leaves: vec![],
-                                children: vec![],
-                            },
-                        );
-                    }
+                    edges.entry(tag).or_insert_with(|| Edges {
+                        leaves: Vec::new(),
+                        children: Vec::new(),
+                    });
                     parent = tag;
                 }
 
@@ -107,13 +111,11 @@ impl<'a> ChildrenIterator<'a> {
     }
 }
 
-impl<'a> Iterator for ChildrenIterator<'a> {
+impl Iterator for ChildrenIterator<'_> {
     type Item = CardHandle;
 
     fn next(&mut self) -> Option<CardHandle> {
-        let Some(&(mut top, mut index)) = self.stack.last() else {
-            return None;
-        };
+        let &(mut top, mut index) = self.stack.last()?;
 
         let mut edge = &self.tree.edges[&top];
 
@@ -131,14 +133,11 @@ impl<'a> Iterator for ChildrenIterator<'a> {
                 return Some(self.tree.edges[&top].leaves[index]);
             } else {
                 self.stack.pop();
-                if let Some((new_top, new_index)) = self.stack.last_mut() {
-                    *new_index += 1;
-                    top = *new_top;
-                    index = *new_index;
-                    edge = &self.tree.edges[&top];
-                } else {
-                    return None;
-                }
+                let (new_top, new_index) = self.stack.last_mut()?;
+                *new_index += 1;
+                top = *new_top;
+                index = *new_index;
+                edge = &self.tree.edges[&top];
             }
         }
     }
@@ -220,43 +219,49 @@ pub fn Selection(deck: Signal<Vec<CardHandle>>) -> Element {
 
     let mut pred = use_context_provider(|| Signal::new(Vec::<Tag>::new()));
     let mut parent = use_context_provider(|| Signal::new(tree.root));
-    let mut empty_deck_popup = use_signal(|| false);
 
-    let cards_enabled = Arc::new({
-        let mut map = SecondaryMap::new();
-        let store = store().lock();
+    let toaster: Toaster = use_context();
+    let mut state: Signal<AppState> = use_context();
 
-        for card in store.cards.keys() {
-            map.insert(card, use_signal(|| false));
-        }
+    let cards_enabled = use_hook(|| {
+        Rc::new({
+            let mut map = SecondaryMap::new();
+            let store = store().lock();
 
-        map
+            for card in store.cards.keys() {
+                map.insert(card, Signal::new(false));
+            }
+
+            map
+        })
     });
 
-    let tags_enabled = Arc::new({
-        let store = store().lock();
-        store
-            .tags
-            .keys()
-            .map(|tag| {
-                let cards_enabled = cards_enabled.clone();
-                let tree = tree.clone();
-                (
-                    tag,
-                    use_memo(move || {
-                        // Code is ass
+    let tags_enabled = use_hook(|| {
+        Rc::new({
+            let store = store().lock();
+            store
+                .tags
+                .keys()
+                .map(|tag| {
+                    let cards_enabled = cards_enabled.clone();
+                    let tree = tree.clone();
+                    (
+                        tag,
+                        Memo::new(move || {
+                            // Code is ass
 
-                        // This is written as a for loop on purpose, we do NOT want the shortcircuitting
-                        // nature of .any(), because this needs to be reactive
-                        let mut on = false;
-                        for card in tree.iter_from(tag) {
-                            on = on || *(cards_enabled[card].read());
-                        }
-                        on
-                    }),
-                )
-            })
-            .collect::<SecondaryMap<_, _>>()
+                            // This is written as a for loop on purpose, we do NOT want the short circuiting
+                            // nature of .any(), because this needs to be reactive
+                            let mut on = false;
+                            for card in tree.iter_from(tag) {
+                                on = on || *(cards_enabled[card].read());
+                            }
+                            on
+                        }),
+                    )
+                })
+                .collect::<SecondaryMap<_, _>>()
+        })
     });
 
     let pwd = use_memo(move || {
@@ -321,8 +326,66 @@ pub fn Selection(deck: Signal<Vec<CardHandle>>) -> Element {
 
             deck.set(cards);
 
-            let mut state: Signal<AppState> = use_context();
             state.set(AppState::Deck);
+        }
+    };
+
+    let select_all = {
+        let cards_enabled = cards_enabled.clone();
+        move |_| {
+            // If any card is not selected, select all cards
+            // Otherwise, deselect all cards
+            let should_select = cards_enabled.iter().any(|(_, s)| !s());
+
+            for &signal in cards_enabled.values() {
+                // Goofy but needs to be mut
+                let mut signal = signal;
+                signal.set(should_select);
+            }
+        }
+    };
+
+    let flip_all = {
+        let cards_enabled = cards_enabled.clone();
+        move |_| {
+            // Invert the selection state of each card
+            for &signal in cards_enabled.values() {
+                let mut signal = signal;
+                signal.set(!signal());
+            }
+        }
+    };
+
+    let select_due = {
+        let cards_enabled = cards_enabled.clone();
+        move |_| {
+            let tracking = tracking().lock();
+            let store = store().lock();
+            let now = OffsetDateTime::now_utc().date();
+            let mut count = 0usize;
+
+            for (key, card) in &store.cards {
+                let due_date = tracking
+                    .cards_info
+                    .get(&card.id)
+                    .and_then(|info| info.due)
+                    .and_then(|due| OffsetDateTime::from_unix_timestamp(due).ok())
+                    .map(OffsetDateTime::date);
+                let is_due = due_date.map(|date| date == now).unwrap_or(false);
+                let mut card = cards_enabled[key];
+
+                card.set(is_due);
+                if is_due {
+                    count += 1;
+                }
+            }
+
+            if count == 0 {
+                toaster.toast(
+                    "No cards due today, you can choose some by hand instead.".to_owned(),
+                    Duration::from_secs(4),
+                );
+            }
         }
     };
 
@@ -347,6 +410,30 @@ pub fn Selection(deck: Signal<Vec<CardHandle>>) -> Element {
 
                 div {
                     class: "spacer"
+                }
+
+                button {
+                    class: "selection",
+                    onclick: select_due,
+                    Icon {
+                        icon: GoCalendar,
+                    }
+                }
+
+                button {
+                    class: "selection",
+                    onclick: select_all,
+                    Icon {
+                        icon: MdSelectAll
+                    }
+                }
+
+                button {
+                    class: "selection",
+                    onclick: flip_all,
+                    Icon {
+                        icon: MdFlipToBack
+                    }
                 }
 
                 div {
@@ -384,23 +471,11 @@ pub fn Selection(deck: Signal<Vec<CardHandle>>) -> Element {
             }
             div {
                 class: "footer",
+
                 button {
                     class: if enabled_count() > 0 { "go" } else { "go locked" },
                     onclick: start,
                     "Start"
-                }
-            }
-
-            if empty_deck_popup() {
-                Popup {
-                    span {
-                        "You need to select at least one card to study !"
-                    }
-                    button {
-                        class: "wide",
-                        onclick: move |_| empty_deck_popup.set(false),
-                        "Back"
-                    }
                 }
             }
         }

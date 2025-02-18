@@ -1,4 +1,4 @@
-use std::sync::{Arc, LazyLock, OnceLock};
+use std::sync::{Arc, OnceLock};
 
 use crate::cards::{CardHandle, CardStore, Rating, SourceConfig, RATINGS};
 use crate::settings::Settings;
@@ -24,6 +24,8 @@ pub fn init_store(store: impl FnOnce() -> CardStore) {
 
 #[component]
 pub fn Results(results: SecondaryMap<CardHandle, Rating>) -> Element {
+    let settings: Signal<Storable<Settings>> = use_context();
+
     let results = Arc::new(results);
     let by_ratings = results.values().copied().counts();
     let score = results.values().map(|r| r.score()).sum::<u32>() * 100 / (3 * results.len() as u32);
@@ -72,8 +74,9 @@ pub fn Results(results: SecondaryMap<CardHandle, Rating>) -> Element {
                     let results = results.clone();
                     spawn(async move {
                         let timestamp = OffsetDateTime::now_utc().unix_timestamp();
+                        let retention = settings.read().retention;
                         let mut tracking = tracking().lock();
-                        tracking.add_session(timestamp, results.iter().map(|(k, &v)| (k, v)));
+                        tracking.add_session(timestamp, retention, results.iter().map(|(k, &v)| (k, v)));
                         tracking.save();
 
                         let mut state = use_context::<Signal<AppState>>();
@@ -111,7 +114,7 @@ pub fn Deck(width: u32, cards: ReadOnlySignal<Vec<CardHandle>>) -> Element {
     };
 
     let mut answering = use_signal(|| true);
-    let mut results = use_signal(|| SecondaryMap::<CardHandle, Rating>::new());
+    let mut results = use_signal(SecondaryMap::<CardHandle, Rating>::new);
     let mut index = use_signal(|| 0);
 
     rsx! {

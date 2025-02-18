@@ -11,7 +11,7 @@ button {
 input[type="checkbox"] {
     appearance: none;
     margin: 0;
-    border: var(--fg-darker) 0.15em solid;
+    border: var(--fg-dark) 0.15em solid;
     border-radius: 0.15em;
     width: 1.15em;
     height: 1.15em;
@@ -129,7 +129,7 @@ body {
     --fg: #fafafa;
     --bg: #000000;
     --bg-light: #121212;
-    --fg-darker: #a6acbd;
+    --fg-dark: #a6acbd;
     --accent: #f58742;
     --accent-fg: black;
 
@@ -137,7 +137,7 @@ body {
     --fg: #fafafa;
     --bg: #181a1f;
     --bg-light: #2a2c33;
-    --fg-darker: #a6acbd;
+    --fg-dark: #a6acbd;
     --accent: #ffce1b;
     --accent-fg: black;
     */
@@ -219,7 +219,7 @@ body {
 }
 
 .deck .controls button:hover {
-    filter: brightness(110%);
+    filter: brightness(120%);
 }
 
 .deck .controls .reveal {
@@ -381,7 +381,7 @@ body {
     display: flex;
     justify-content: center;
     align-items: center;
-    color: var(--fg-darker);
+    color: var(--fg-dark);
 }
 
 .results .summary .bar {
@@ -400,7 +400,7 @@ body {
     align-self: center;
     justify-self: center;
     font-weight: bold;
-    color: var(--fg-darker);
+    color: var(--fg-dark);
 }
 
 .results .summary .count {
@@ -451,38 +451,40 @@ body {
     align-items: center;
     height: 1em;
     margin-bottom: 0.5em;
-    gap: 0.1em;
+    gap: 0.2em;
     padding: 0.5em;
     padding-bottom: 0;
 }
 
 .selection .header .spacer {
-    flex-grow: 2;
+    flex-grow: 3;
 }
 
 .selection .header .count {
-    color: var(--fg-darker);
+    color: var(--fg-dark);
     font-weight: bold;
     font-size: 0.8em;
+    margin-left: 0.4em;
 }
 
-.selection .header .tag {
+.selection .header button {
+    flex-grow: 0;
     background: none;
     border: none;
-    color: var(--fg-darker);
+    color: var(--fg-dark);
     cursor: pointer;
     border-radius: 0.2em;
     padding: 0.1em 0.4em;
 }
 
-.selection .header .tag:hover {
+.selection .header button:hover {
     background-color: var(--bg-light);
 }
 
 .selection .header svg {
     width: 0.8em;
     height: 0.8em;
-    color: var(--fg-darker);
+    color: var(--fg-dark);
 }
 
 .selection .items {
@@ -544,25 +546,31 @@ body {
     bottom: 0.5rem;
     width: 100%;
     box-shadow: 0 -0.6em 0.2em var(--bg);
+    display: flex;
+    gap: 1em;
 }
 
-.selection .footer .go {
+.selection .footer button {
     height: 3.6rem;
-    margin: 0 1rem;
     border-radius: 0.5rem;
     border: none;
     font-weight: bold;
-    font-size: 2em;
     background-color: var(--accent);
     color: black;
     cursor: pointer;
-    width: calc(100% - 2rem);
     transition: background 0.2s;
+}
+
+.selection .footer .go {
+    margin-right: 1rem;
+    margin-left: 1rem;
+    flex-grow: 2;
+    font-size: 2em;
 }
 
 .selection .footer .go.locked:hover,
 .selection .footer .go.locked {
-    background: var(--fg-darker);
+    background: var(--fg-dark);
     filter: initial;
     cursor: inherit;
 }
@@ -578,6 +586,7 @@ body {
     flex-direction: column;
     flex-grow: 2;
     padding: 1em;
+    gap: 1em;
 }
 
 .settings .item {
@@ -605,6 +614,21 @@ body {
 .settings .item .extra {
     grid-area: extra;
     font-weight: bold;
+}
+
+.settings .item button {
+    background: var(--bg-light);
+    border: none;
+    outline: 0;
+    color: var(--fg);
+    padding: 0.5em;
+    border-radius: 0.5em;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.settings .item button:hover {
+    filter: brightness(130%);
 }
 
 /* ERROR */
@@ -641,7 +665,7 @@ body {
 
 .error .debug summary {
     font-weight: bold;
-    color: var(--fg-darker);
+    color: var(--fg-dark);
 }
 
 .error .debug .more {
@@ -770,14 +794,14 @@ body {
     padding: 0.5em;
     border-radius: 0.5em;
     display: grid;
-    grid-template-rows: 1fr auto;
+    grid-template-rows: 1fr 1fr auto;
     grid-template-columns: 1fr 1fr;
-    grid-template-areas: "id score" "views views";
+    grid-template-areas: "id score" "label due" "views views";
 }
 
 .stats .cards .card .id {
     grid-area: id;
-    color: var(--fg-darker);
+    color: var(--fg-dark);
     font-weight: bold;
 }
 
@@ -787,6 +811,17 @@ body {
     font-weight: bold;
     font-family: "League Gothic";
     color: var(--accent);
+}
+
+.stats .cards .card .label {
+    grid-area: label;
+    font-weight: bold;
+}
+
+.stats .cards .card .due {
+    grid-area: due;
+    color: var(--fg-dark);
+    justify-self: self-end;
 }
 
 .stats .cards .card .views {
@@ -808,5 +843,43 @@ body {
 
 .stats .cards .card .views .view .timestamp {
     grid-area: timestamp;
-    color: var(--fg-darker);
+    color: var(--fg-dark);
+}
+
+/* TOASTS */
+
+.toast-wrap {
+    width: 100vw;
+    height: 100vh;
+    position: absolute;
+    left: 0;
+    top: 0;
+    padding: 2em;
+    box-sizing: border-box;
+    display: flex;
+    justify-content: flex-end;
+    flex-direction: column;
+    align-items: center;
+    pointer-events: none;
+    gap: 1em;
+}
+
+.toast-wrap .toast {
+    --transition: 0.3s;
+    background-color: rgba(50, 50, 50, 0.9);
+    padding: 1.5em;
+    transition: all var(--transition);
+    border-radius: 2em;
+    animation: var(--transition) toast-appear;
+}
+
+@keyframes toast-appear {
+    from {
+        opacity: 0;
+        max-height: 0;
+    }
+    to {
+        opacity: 1;
+        max-height: 5em;
+    }
 }

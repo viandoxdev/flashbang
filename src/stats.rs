@@ -1,8 +1,6 @@
-use std::time::{Duration, Instant, SystemTime};
-
 use dioxus::prelude::*;
 use itertools::Itertools;
-use time::{format_description::well_known, macros::format_description, OffsetDateTime};
+use time::{macros::format_description, OffsetDateTime};
 
 use crate::tracking::tracking;
 
@@ -30,8 +28,16 @@ pub fn Stats() -> Element {
             .map(|(k, c)| {
                 (
                     k.to_owned(),
-                    c.score,
-                    c.views
+                    match c.memory_state {
+                        Some(state) => {
+                            format!("{:.02}s {:.02}d", state.stability, state.difficulty)
+                        }
+                        None => "No reviews".to_owned(),
+                    },
+                    c.due
+                        .map(timestamp_to_string)
+                        .unwrap_or_else(|| "Not due".to_owned()),
+                    c.reviews
                         .iter()
                         .map(|v| (timestamp_to_string(v.timestamp), v.rating))
                         .collect_vec(),
@@ -63,12 +69,14 @@ pub fn Stats() -> Element {
             div {
                 class: "cards",
 
-                for (id, score, views) in &cards {
+                for (id, state, due, views) in &cards {
                     div {
                         class: "card",
 
                         div { class: "id", "{id}" }
-                        div { class: "score", "{score}%"}
+                        div { class: "score", "{state}"}
+                        div { class: "label", "Due" }
+                        div { class: "due", "{due}" }
 
                         div {
                             class: "views",

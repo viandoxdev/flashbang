@@ -1,4 +1,4 @@
-use std::sync::Arc;
+#![allow(dead_code)]
 
 use cards::CardStore;
 use deck::{init_store, Deck};
@@ -13,12 +13,14 @@ use dioxus_free_icons::{
     Icon,
 };
 
+use popup::{ToastDisplay, Toaster};
 use selection::Selection;
 use settings::{Settings, SettingsComponent};
 use stats::Stats;
 use storage::Storable;
 use tracking::init_tracking;
 
+mod algorithm;
 mod cards;
 mod deck;
 mod popup;
@@ -124,7 +126,7 @@ fn Home() -> Element {
 
 #[component]
 fn App() -> Element {
-    let card_deck = use_signal(|| vec![]);
+    let card_deck = use_signal(Vec::new);
     let mut width = use_signal(|| 0u32);
 
     let _settings = use_context_provider(|| {
@@ -132,6 +134,9 @@ fn App() -> Element {
     });
 
     let mut state = use_context_provider(|| Signal::new(AppState::Home));
+    let toaster = use_root_context(Toaster::new);
+
+    use_effect(use_reactive((&state,), move |_| toaster.clear()));
 
     rsx! {
         document::Link { rel: "icon", href: FAVICON }
@@ -226,5 +231,6 @@ fn App() -> Element {
                 }
             }
         }
+        ToastDisplay {  }
     }
 }

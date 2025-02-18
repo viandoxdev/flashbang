@@ -1,0 +1,4 @@
+[toolchain]
+channel = "nightly-2025-02-13"
+#components = ["rust-src"]
+target = ["wasm32-unknown-unknown", "aarch64-linux-android"]

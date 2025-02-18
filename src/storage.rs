@@ -22,13 +22,7 @@ fn try_deserialize<T: serde::de::DeserializeOwned>(s: &str) -> Option<T> {
         let n2 = c2.to_digit(16)?;
         bytes.push((n1 * 16 + n2) as u8);
     }
-    match yazi::decompress(&bytes, yazi::Format::Zlib) {
-        Ok((decompressed, _)) => match postcard::from_bytes(&decompressed) {
-            Ok(v) => Some(v),
-            Err(_) => None,
-        },
-        Err(_) => None,
-    }
+    postcard::from_bytes(&yazi::decompress(&bytes, yazi::Format::Zlib).ok()?.0).ok()
 }
 
 /// Types that can deserialize into another type used for backwards compatibility
@@ -56,6 +50,7 @@ impl<T, F: Into<T> + serde::de::DeserializeOwned> FallbackDeserialize<T> for F {
 macro_rules! impl_tuples {
     ($($t:tt)*) => {
         impl<T, $($t: FallbackDeserialize<T>,)*> FallbackDeserialize<T> for TypeList<($($t,)*)> {
+            #[allow(unused_variables)]
             fn deserialize(s: &str) -> Option<T> {
                 None
                     $(.or_else(|| $t::deserialize(s)))*
