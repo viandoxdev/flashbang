@@ -92,9 +92,9 @@ pub fn ToastDisplay() -> Element {
         div {
             class: "toast-wrap",
 
-            for (_handle, toast) in toaster.toasts.read().iter() {
+            for (handle, toast) in toaster.toasts.read().iter() {
                 ShowToast {
-                    key: _handle,
+                    key: "{handle:?}",
                     toast: toast.clone(),
                 }
             }
