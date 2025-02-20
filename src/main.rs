@@ -1,5 +1,8 @@
 #![allow(dead_code)]
 
+use std::time::Duration;
+
+use async_std::task::sleep;
 use cards::{CardHandle, CardStore, LoadError};
 use deck::{init_store, Deck};
 use dioxus::{
@@ -128,6 +131,7 @@ fn Wrap(card_deck: Signal<Vec<CardHandle>>, width: ReadOnlySignal<u32>) -> Eleme
     let settings: Signal<Storable<Settings>> = use_context();
     let repo = settings.read().repo.as_ref().cloned();
     let branch = settings.read().branch.clone();
+    let token = settings.read().token.as_ref().cloned();
     // This can either be Ok(Vec<LoadError>), indicating that the loading succeeded with some recoverable errors
     // (we should display them, but keep the app running), or be Err(Box<dyn std::error::Error>), in which case
     // the loading failed.
@@ -135,13 +139,13 @@ fn Wrap(card_deck: Signal<Vec<CardHandle>>, width: ReadOnlySignal<u32>) -> Eleme
         use_resource(move || {
             let repo = repo.clone();
             let branch = branch.clone();
-            info!("Called");
+            let token = token.clone();
             async move {
                 let Some(repo) = repo else {
                     init_store(CardStore::default());
                     return Ok(Vec::new());
                 };
-                let (store, errors) = CardStore::new_from_github(repo, branch).await?;
+                let (store, errors) = CardStore::new_from_github(repo, branch, token).await?;
                 init_store(store);
                 Ok(errors)
             }

@@ -935,3 +935,32 @@ body {
         max-height: 5em;
     }
 }
+
+/* LOADING */
+
+.loader-wrap {
+    flex-grow: 2;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 1rem;
+    font-size: 1.5em;
+    font-weight: bold;
+}
+
+.loader-wrap svg {
+    width: 30vmin;
+    height: 30vmin;
+    color: var(--accent);
+    animation: rotate 2s infinite linear;
+}
+
+@keyframes rotate {
+    from: {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}

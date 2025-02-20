@@ -304,9 +304,10 @@ impl CardStore {
     pub async fn new_from_github(
         repo: String,
         branch: String,
+        token: Option<String>,
     ) -> Result<(Self, Vec<LoadError>), reqwest::Error> {
         let mut store = Storable::<CardStore>::new("store", CardStore::default);
-        let api = match GithubAPI::new(repo, branch).await {
+        let api = match GithubAPI::new(repo, branch, token).await {
             Ok(api) => api,
             Err(e) => {
                 return Ok((

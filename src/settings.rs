@@ -3,7 +3,7 @@ use std::time::Duration;
 use dioxus::prelude::*;
 use dioxus_free_icons::{
     icons::{
-        fa_solid_icons::FaFont,
+        fa_solid_icons::{FaFont, FaKey},
         go_icons::{GoGitBranch, GoNumber, GoRepo},
         md_hardware_icons::MdMemory,
     },
@@ -22,6 +22,7 @@ pub struct Settings {
     pub retention: f32,
     pub repo: Option<String>,
     pub branch: String,
+    pub token: Option<String>,
 }
 
 impl Serializable for Settings {
@@ -35,6 +36,7 @@ impl Default for Settings {
             retention: 0.8,
             branch: "main".to_owned(),
             repo: None,
+            token: None,
         }
     }
 }
@@ -87,6 +89,30 @@ pub fn SettingsComponent() -> Element {
                                 settings.write().repo = None;
                             } else {
                                 settings.write().repo = Some(val)
+                            }
+                            Toaster::toast("An app reload is necessary for this change to take effect.".to_owned(), Duration::from_secs(DEFAULT_TOAST_DURATION));
+                        }
+                    }
+                }
+            }
+
+            div {
+                class: "item",
+                Icon { icon: FaKey }
+                span { class: "label", "Github token" }
+                div {
+                    class: "input",
+                    input {
+                        type: "text",
+                        size: 1,
+                        placeholder: "your github token here",
+                        value: r#"{settings.read().token.as_ref().map(|s| s.as_str()).unwrap_or("")}"#,
+                        onchange: move |e| {
+                            let val = e.value();
+                            if val.is_empty() {
+                                settings.write().token = None;
+                            } else {
+                                settings.write().token = Some(val)
                             }
                             Toaster::toast("An app reload is necessary for this change to take effect.".to_owned(), Duration::from_secs(DEFAULT_TOAST_DURATION));
                         }
