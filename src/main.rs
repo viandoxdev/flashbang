@@ -1,15 +1,8 @@
 #![allow(dead_code)]
 
-use std::time::Duration;
-
-use async_std::task::sleep;
 use cards::{CardHandle, CardStore, LoadError};
 use deck::{init_store, Deck};
-use dioxus::{
-    logger::tracing::{info, Level},
-    prelude::*,
-    CapturedError,
-};
+use dioxus::{logger::tracing::Level, prelude::*, CapturedError};
 use dioxus_free_icons::{
     icons::{
         bs_icons as bs,

@@ -1,6 +1,5 @@
 //! Thin github api wrapper for the 3 calls I need to do
 
-use dioxus::logger::tracing::info;
 use reqwest::{
     header::{ACCEPT, AUTHORIZATION, USER_AGENT},
     Client, RequestBuilder,
