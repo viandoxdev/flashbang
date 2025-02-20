@@ -3,7 +3,6 @@ use std::{
     hash::{DefaultHasher, Hash, Hasher},
     iter::once,
     rc::Rc,
-    sync::Arc,
     time::Duration,
 };
 
@@ -26,7 +25,9 @@ use time::OffsetDateTime;
 use crate::{
     cards::{CardHandle, Tag},
     deck::store,
-    popup::Toaster,
+    popup::{Toaster, DEFAULT_TOAST_DURATION},
+    settings::Settings,
+    storage::Storable,
     tracking::tracking,
     AppState,
 };
@@ -214,13 +215,13 @@ fn ItemCard(card: CardHandle, enabled: Signal<bool>) -> Element {
 
 #[component]
 pub fn Selection(deck: Signal<Vec<CardHandle>>) -> Element {
-    let tree = Arc::new(TagTree::new());
+    let settings: Signal<Storable<Settings>> = use_context();
+    let tree = use_hook(|| Rc::new(TagTree::new()));
     let root = tree.root;
 
     let mut pred = use_context_provider(|| Signal::new(Vec::<Tag>::new()));
     let mut parent = use_context_provider(|| Signal::new(tree.root));
 
-    let toaster: Toaster = use_context();
     let mut state: Signal<AppState> = use_context();
 
     let cards_enabled = use_hook(|| {
@@ -381,9 +382,9 @@ pub fn Selection(deck: Signal<Vec<CardHandle>>) -> Element {
             }
 
             if count == 0 {
-                toaster.toast(
+                Toaster::toast(
                     "No cards due today, you can choose some by hand instead.".to_owned(),
-                    Duration::from_secs(4),
+                    Duration::from_secs(DEFAULT_TOAST_DURATION),
                 );
             }
         }
@@ -441,31 +442,41 @@ pub fn Selection(deck: Signal<Vec<CardHandle>>) -> Element {
                     "{enabled_count} selected"
                 }
             }
-            div {
-                class: "items",
+            if settings.read().repo.is_some() {
+                div {
+                    class: "items",
 
-                for &tag in &tree.edges[&parent()].children {
-                    ItemTag {
-                        tag,
-                        enabled: tags_enabled[tag],
-                        onactivate: {
-                            let cards_enabled = cards_enabled.clone();
-                            let tree = tree.clone();
-                            move |on| {
-                                tree.iter_from(tag)
-                                    .for_each(|c| {
-                                        let mut sig = cards_enabled[c];
-                                        sig.set(on)
-                                    });
+                    for &tag in &tree.edges[&parent()].children {
+                        ItemTag {
+                            tag,
+                            enabled: tags_enabled[tag],
+                            onactivate: {
+                                let cards_enabled = cards_enabled.clone();
+                                let tree = tree.clone();
+                                move |on| {
+                                    tree.iter_from(tag)
+                                        .for_each(|c| {
+                                            let mut sig = cards_enabled[c];
+                                            sig.set(on)
+                                        });
+                                }
                             }
                         }
                     }
-                }
 
-                for &card in &tree.edges[&parent()].leaves {
-                    ItemCard {
-                        card,
-                        enabled: cards_enabled[card]
+                    for &card in &tree.edges[&parent()].leaves {
+                        ItemCard {
+                            card,
+                            enabled: cards_enabled[card]
+                        }
+                    }
+                }
+            } else {
+                div {
+                    class: "placeholder",
+
+                    div {
+                        "No cards are available because the card repository isn't set in settings."
                     }
                 }
             }

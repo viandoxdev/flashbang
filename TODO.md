@@ -1,6 +1,5 @@
 - Streak
 - Pre render (render 3-4 cards ahead to svg)
-- Sync
 - Better stats
 - Find a way to bind back button on mobile
 - Make selection more responsive (when in deep paths)

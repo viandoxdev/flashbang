@@ -1,3 +1,5 @@
+//![FLASHBANG IGNORE]
+
 #let setup(doc) = {
   set text(size: 16pt)
   set page(margin: (x: 2em, y: 1em), height: auto)

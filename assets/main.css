@@ -65,6 +65,7 @@ input[type="range"]::-moz-range-track {
     background: var(--bg-light);
     height: var(--track-height);
     border-radius: var(--track-height);
+    min-width: 0;
 }
 input[type="range"]::-moz-range-progress {
     appearance: none;
@@ -119,6 +120,20 @@ input[type="range"]::-webkit-slider-thumb {
         calc(0% + 0px) var(--below),
         -100vmax var(--below)
     );
+}
+
+input[type="text"] {
+    background: var(--bg-light);
+    outline: 0;
+    border: none;
+    border-radius: 0.5em;
+    padding: 0.5em;
+    color: var(--fg);
+    font-weight: bold;
+}
+
+input[type="text"]::placeholder {
+    color: var(--fg-dark);
 }
 
 body {
@@ -487,6 +502,17 @@ body {
     color: var(--fg-dark);
 }
 
+.selection .placeholder {
+    flex-grow: 2;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 1em;
+    text-align: center;
+    font-weight: bold;
+    margin-bottom: 4em;
+}
+
 .selection .items {
     display: flex;
     flex-direction: column;
@@ -591,8 +617,8 @@ body {
 
 .settings .item {
     display: grid;
-    grid-template-areas: "icon label setting extra";
-    grid-template-columns: 5% 41% 41% min-content;
+    grid-template-areas: "icon label setting";
+    grid-template-columns: 1.5em 1fr 1.5fr;
     align-items: center;
     gap: 0.5em;
 }
@@ -602,8 +628,18 @@ body {
     grid-area: icon;
 }
 
-.settings .item input {
+.settings .item .input {
     grid-area: setting;
+    display: flex;
+    gap: 0.5em;
+}
+
+.settings .item .input * {
+    flex-grow: 1;
+}
+
+.settings .item .input .extra {
+    flex-grow: 0;
 }
 
 .settings .item .label {
@@ -616,15 +652,18 @@ body {
     font-weight: bold;
 }
 
-.settings .item button {
-    background: var(--bg-light);
+.settings .item .input button {
+    background: var(--accent);
     border: none;
     outline: 0;
-    color: var(--fg);
+    color: var(--accent-fg);
     padding: 0.5em;
     border-radius: 0.5em;
     cursor: pointer;
     font-weight: bold;
+    text-align: center;
+    display: flex;
+    justify-content: center;
 }
 
 .settings .item button:hover {
@@ -643,6 +682,18 @@ body {
     padding: 1em;
 }
 
+.error .ui .close {
+    font-size: 1.4em;
+    border: none;
+    outline: 0;
+    background-color: var(--bg-light);
+    color: var(--fg);
+    cursor: pointer;
+    font-weight: bold;
+    padding: 0.5rem;
+    border-radius: 0.5rem;
+}
+
 .error svg {
     width: 30vmin;
     height: 30vmin;
@@ -652,6 +703,7 @@ body {
 .error .label {
     font-size: 1.5em;
     font-weight: bold;
+    text-align: center;
 }
 
 .error .debug {

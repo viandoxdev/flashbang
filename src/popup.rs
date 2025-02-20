@@ -21,6 +21,8 @@ pub fn Popup(children: Element) -> Element {
     }
 }
 
+pub const DEFAULT_TOAST_DURATION: u64 = 2;
+
 new_key_type! {
     struct ToastHandle;
 }
@@ -33,27 +35,21 @@ struct Toast {
     visible: bool,
 }
 
-#[derive(Clone, Copy)]
 pub struct Toaster {
-    toasts: Signal<SlotMap<ToastHandle, Toast>>,
+    toasts: GlobalSignal<SlotMap<ToastHandle, Toast>>,
 }
 
+static TOASTER: Toaster = Toaster::new();
+
 impl Toaster {
-    /// Create a new toaster, this creates a signal so this should be called from a component
-    pub fn new() -> Self {
+    const fn new() -> Self {
         Self {
-            toasts: Signal::new(SlotMap::with_key()),
+            toasts: GlobalSignal::new(SlotMap::with_key),
         }
     }
 
-    pub fn clear(&self) {
-        let mut toasts = self.toasts;
-        toasts.write().clear();
-    }
-
-    pub fn toast(&self, message: String, duration: Duration) {
-        let mut toasts = self.toasts;
-        let handle = toasts.write().insert_with_key(|handle| Toast {
+    pub fn toast(message: String, duration: Duration) {
+        let handle = TOASTER.toasts.write().insert_with_key(|handle| Toast {
             duration,
             handle,
             message,
@@ -62,11 +58,11 @@ impl Toaster {
 
         spawn_forever(async move {
             sleep(duration).await;
-            if let Some(toast) = toasts.write().get_mut(handle) {
+            if let Some(toast) = TOASTER.toasts.write().get_mut(handle) {
                 toast.visible = false;
             }
             sleep(Duration::from_secs(1)).await;
-            toasts.write().remove(handle);
+            TOASTER.toasts.write().remove(handle);
         });
     }
 }
@@ -87,12 +83,11 @@ fn ShowToast(toast: Toast) -> Element {
 
 #[component]
 pub fn ToastDisplay() -> Element {
-    let toaster: Toaster = use_context();
     rsx! {
         div {
             class: "toast-wrap",
 
-            for (handle, toast) in toaster.toasts.read().iter() {
+            for (handle, toast) in TOASTER.toasts.read().iter() {
                 ShowToast {
                     key: "{handle:?}",
                     toast: toast.clone(),

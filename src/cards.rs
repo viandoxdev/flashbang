@@ -8,10 +8,17 @@ use std::error::Error;
 use std::fmt::Display;
 use std::iter::once;
 use std::ops::Deref;
+use std::path::Path;
 
 use itertools::Itertools;
+use serde::{Deserialize, Serialize};
 use slotmap::SlotMap;
 use smallvec::SmallVec;
+
+use crate::{
+    github::GithubAPI,
+    storage::{Serializable, Storable, TypeList},
+};
 
 slotmap::new_key_type! {
     /// Handle to a tag, akin to a directory, has a name held in CardStore
@@ -22,7 +29,7 @@ slotmap::new_key_type! {
 
 /// Cards have a set of paths: different locations they may be found at.
 /// These are sequences of tags (i.e Math.Algebra.Field)
-#[derive(Debug, Clone)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct CardPath(SmallVec<[Tag; 16]>);
 
 impl Deref for CardPath {
@@ -45,7 +52,7 @@ impl CardPath {
 }
 
 /// Represents a card's content
-#[derive(Debug, Clone)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Card {
     pub name: String,
     pub id: String,
@@ -97,7 +104,10 @@ impl Display for Rating {
 }
 
 /// Global store for cards and tags
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct CardStore {
+    /// Sha of the commit this store was based off
+    sha: String,
     tags_map: HashMap<String, Tag>,
     /// Name of tags
     pub tags: SlotMap<Tag, String>,
@@ -105,15 +115,42 @@ pub struct CardStore {
     pub cards: SlotMap<CardHandle, Card>,
 }
 
+impl Serializable for CardStore {
+    type Fallback = TypeList<()>;
+}
+
 impl Default for CardStore {
     fn default() -> Self {
         Self {
+            sha: "".to_owned(),
             tags_map: HashMap::new(),
             tags: SlotMap::with_key(),
             cards: SlotMap::with_key(),
         }
     }
 }
+
+#[derive(Debug, Clone)]
+pub struct LoadError {
+    error: String,
+    path: String,
+}
+
+impl Display for LoadError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.path.is_empty() {
+            write!(f, "Error loading typst file: {}", self.error)
+        } else {
+            write!(
+                f,
+                "Error loading typst file: {} (at {})",
+                self.error, self.path
+            )
+        }
+    }
+}
+
+impl Error for LoadError {}
 
 /// Config for things that the source needs to compile
 #[derive(Clone, Copy)]
@@ -187,6 +224,10 @@ impl CardStore {
 
     /// Load a typst card source file into the store
     pub fn load<'a>(&mut self, content: &'a str) -> Result<(), Box<dyn Error + 'a>> {
+        if content.starts_with("//![FLASHBANG IGNORE]") {
+            return Ok(());
+        }
+
         use nom::{
             bytes::*, character::*, combinator::*, error::*, multi::*, sequence::*, IResult, Parser,
         };
@@ -257,5 +298,58 @@ impl CardStore {
         }
 
         Ok(())
+    }
+
+    /// Return type is like that because we can get an error and recover
+    pub async fn new_from_github(
+        repo: String,
+        branch: String,
+    ) -> Result<(Self, Vec<LoadError>), reqwest::Error> {
+        let mut store = Storable::<CardStore>::new("store", CardStore::default);
+        let api = match GithubAPI::new(repo, branch).await {
+            Ok(api) => api,
+            Err(e) => {
+                return Ok((
+                    store.take(),
+                    vec![LoadError {
+                        error: e.to_string(),
+                        path: "".to_string(),
+                    }],
+                ))
+            }
+        };
+
+        if api.sha == store.sha {
+            return Ok((store.take(), Vec::new()));
+        }
+
+        // Sha has changed and we seem to be able to connect to the github API
+        // Well reset the store and reinitialize it with what we can get online
+        // From this point we won't try to recover from errors
+
+        store.replace(CardStore::default());
+
+        let items = api.get_items().await?.into_iter().filter(|item| {
+            item.kind == "blob"
+                && Path::new(&item.path)
+                    .extension()
+                    .map(|ext| ext == "typ")
+                    .unwrap_or_default()
+        });
+
+        let mut errors = Vec::new();
+        for item in items {
+            let content = api.get_blob(&item.sha).await?;
+            if let Err(e) = store.load(&content) {
+                errors.push(LoadError {
+                    error: e.to_string(),
+                    path: item.path,
+                });
+            };
+        }
+
+        store.save();
+
+        Ok((store.take(), errors))
     }
 }

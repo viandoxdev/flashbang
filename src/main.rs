@@ -1,19 +1,25 @@
 #![allow(dead_code)]
 
-use cards::CardStore;
+use cards::{CardHandle, CardStore, LoadError};
 use deck::{init_store, Deck};
-use dioxus::{logger::tracing::Level, prelude::*};
+use dioxus::{
+    logger::tracing::{info, Level},
+    prelude::*,
+    CapturedError,
+};
 use dioxus_free_icons::{
     icons::{
         bs_icons as bs,
         fa_solid_icons::{self as fa, FaAngleLeft},
         hi_solid_icons as hi,
+        ld_icons::LdLoaderCircle,
         md_alert_icons::MdError,
     },
     Icon,
 };
 
-use popup::{ToastDisplay, Toaster};
+use itertools::Itertools;
+use popup::ToastDisplay;
 use selection::Selection;
 use settings::{Settings, SettingsComponent};
 use stats::Stats;
@@ -23,6 +29,7 @@ use tracking::init_tracking;
 mod algorithm;
 mod cards;
 mod deck;
+mod github;
 mod popup;
 mod selection;
 mod settings;
@@ -38,14 +45,6 @@ const FONT_LEAGUE_GOTHIC: Asset = asset!("/assets/League-Gothic.woff2");
 
 fn main() {
     let _ = dioxus::logger::init(Level::INFO);
-
-    init_store(|| {
-        let mut store = CardStore::default();
-        store
-            .load(include_str!("../test.typ"))
-            .expect("Failure on load");
-        store
-    });
 
     init_tracking();
 
@@ -125,8 +124,135 @@ fn Home() -> Element {
 }
 
 #[component]
+fn Wrap(card_deck: Signal<Vec<CardHandle>>, width: ReadOnlySignal<u32>) -> Element {
+    let settings: Signal<Storable<Settings>> = use_context();
+    let repo = settings.read().repo.as_ref().cloned();
+    let branch = settings.read().branch.clone();
+    // This can either be Ok(Vec<LoadError>), indicating that the loading succeeded with some recoverable errors
+    // (we should display them, but keep the app running), or be Err(Box<dyn std::error::Error>), in which case
+    // the loading failed.
+    let loading_errors: MappedSignal<Result<Vec<LoadError>, Box<dyn std::error::Error>>> =
+        use_resource(move || {
+            let repo = repo.clone();
+            let branch = branch.clone();
+            info!("Called");
+            async move {
+                let Some(repo) = repo else {
+                    init_store(CardStore::default());
+                    return Ok(Vec::new());
+                };
+                let (store, errors) = CardStore::new_from_github(repo, branch).await?;
+                init_store(store);
+                Ok(errors)
+            }
+        })
+        .suspend()?;
+
+    // Throw if the loading failed
+    loading_errors
+        .read()
+        .as_ref()
+        .map_err(|e| CapturedError::from_display(e.to_string()))?;
+
+    // Not memoed because this vec is empty almost all the time anyway
+    let mut errors = use_signal(|| {
+        loading_errors
+            .read()
+            .as_ref()
+            .unwrap()
+            .iter()
+            .cloned()
+            .map(CapturedError::from_display)
+            .collect_vec()
+    });
+
+    let state: Signal<AppState> = use_context();
+    rsx! {
+        if !errors.is_empty() {
+            ErrorDisplay {
+                ui: Some(rsx! {
+                    button {
+                        class: "close",
+                        onclick: move |_| errors.write().clear(),
+
+                        "Recover"
+                    }
+                }),
+                message: Some("Recoverable error encountered while loading cards".to_owned()),
+                errors: errors
+            }
+        } else {
+            if state() == AppState::Home {
+                Home {}
+            } else if state() == AppState::Deck {
+                Deck {
+                    cards: card_deck,
+                    width: width()
+                }
+            } else if state() == AppState::Stats {
+                Stats {}
+            } else if state() == AppState::Selection {
+                Selection {
+                    deck: card_deck
+                }
+            } else if state() == AppState::Settings {
+                SettingsComponent {}
+            }
+        }
+    }
+}
+
+#[component]
+fn ErrorDisplay(
+    message: Option<String>,
+    ui: Option<Element>,
+    errors: ReadOnlySignal<Vec<CapturedError>>,
+) -> Element {
+    let message = message.unwrap_or_else(|| "An error was encountered.".to_owned());
+    rsx! {
+        div {
+            class: "error",
+
+            Icon {
+                icon: MdError
+            }
+            span {
+                class: "label",
+                "{message}"
+            }
+
+            if let Some(ui) = ui {
+                div {
+                    class: "ui",
+                    { ui }
+                }
+            }
+
+            details {
+                class: "debug",
+
+                summary {
+                    "More info"
+                }
+
+                div {
+                    class: "more",
+
+                    for err in errors.read().iter() {
+                        span {
+                            class: "item",
+                            "{err}"
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[component]
 fn App() -> Element {
-    let card_deck = use_signal(Vec::new);
+    let card_deck = use_signal(Vec::<CardHandle>::new);
     let mut width = use_signal(|| 0u32);
 
     let _settings = use_context_provider(|| {
@@ -134,9 +260,6 @@ fn App() -> Element {
     });
 
     let mut state = use_context_provider(|| Signal::new(AppState::Home));
-    let toaster = use_root_context(Toaster::new);
-
-    use_effect(use_reactive((&state,), move |_| toaster.clear()));
 
     rsx! {
         document::Link { rel: "icon", href: FAVICON }
@@ -172,62 +295,28 @@ fn App() -> Element {
             },
             onresize: move |event| width.set(event.get_content_box_size().map(|res| res.width as u32).unwrap_or(0)),
             ErrorBoundary {
-                handle_error: move |error: ErrorContext| {
-                    rsx! {
-                        div {
-                            class: "error",
-
-                            Icon {
-                                icon: MdError
-                            }
-                            span {
-                                class: "label",
-                                "An error was encountered."
-                            }
-
-                            if let Some(ui) = error.show() {
-                                div {
-                                    class: "ui",
-                                    { ui }
-                                }
-                            }
-
-                            details {
-                                class: "debug",
-
-                                summary {
-                                    "More info"
-                                }
-
-                                div {
-                                    class: "more",
-
-                                    for err in error.errors() {
-                                        span {
-                                            class: "item",
-                                            "{err}"
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                handle_error: move |error: ErrorContext| rsx! {
+                    ErrorDisplay {
+                        ui: error.show(),
+                        errors: error.errors().to_vec(),
                     }
                 },
-                if state() == AppState::Home {
-                    Home {}
-                } else if state() == AppState::Deck {
-                    Deck {
-                        cards: card_deck,
-                        width: width()
+                SuspenseBoundary {
+                    fallback: |_| rsx! {
+                        div {
+                            class: "loader-wrap",
+                            Icon {
+                                class: "loader",
+                                icon: LdLoaderCircle,
+                            }
+
+                            "Loading..."
+                        }
+                    },
+                    Wrap {
+                        card_deck,
+                        width,
                     }
-                } else if state() == AppState::Stats {
-                    Stats {}
-                } else if state() == AppState::Selection {
-                    Selection {
-                        deck: card_deck
-                    }
-                } else if state() == AppState::Settings {
-                    SettingsComponent {}
                 }
             }
         }

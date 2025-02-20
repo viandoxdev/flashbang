@@ -116,6 +116,14 @@ impl<T: Serializable> Storable<T> {
         file.write_all(str.as_bytes()).ok()
     }
 
+    pub fn replace(&mut self, value: T) -> T {
+        std::mem::replace(&mut self.value, value)
+    }
+
+    pub fn take(self) -> T {
+        self.value
+    }
+
     pub fn new(key: impl AsRef<str>, init: impl Fn() -> T) -> Self {
         let key = key.as_ref();
         #[cfg(target_os = "android")]

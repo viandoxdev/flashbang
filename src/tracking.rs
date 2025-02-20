@@ -109,6 +109,7 @@ pub struct TrackedData {
     pub cards_info: HashMap<String, CardInfo>,
     pub sessions: Vec<Session>,
     pub fsrs_params: Vec<f32>,
+    pub repo_sha: String,
 }
 
 impl TrackedData {
@@ -153,6 +154,7 @@ impl Default for TrackedData {
             cards_info: HashMap::new(),
             sessions: Vec::new(),
             fsrs_params: fsrs::DEFAULT_PARAMETERS.to_vec(),
+            repo_sha: "".to_owned(),
         }
     }
 }
