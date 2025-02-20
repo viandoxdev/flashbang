@@ -3,3 +3,4 @@
 - Better stats
 - Find a way to bind back button on mobile
 - Make selection more responsive (when in deep paths)
+- i18n
