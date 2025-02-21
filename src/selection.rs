@@ -126,6 +126,7 @@ impl Iterator for ChildrenIterator<'_> {
                 top = edge.children[index];
                 index = 0;
                 edge = &self.tree.edges[&top];
+                self.stack.push((top, index));
             } else if index - children < edge.leaves.len() {
                 if let Some((_, index)) = self.stack.last_mut() {
                     *index += 1;
