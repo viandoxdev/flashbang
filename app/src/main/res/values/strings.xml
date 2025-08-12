@@ -1,0 +1,46 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <string name="app_name" translatable="false">flashbang</string>
+    <plurals name="card_count">
+        <item quantity="one">%d card</item>
+        <item quantity="other">%d cards</item>
+    </plurals>
+    <plurals name="days_before">
+        <item quantity="one">yesterday</item>
+        <item quantity="other">%d days ago</item>
+    </plurals>
+    <plurals name="days_ahead">
+        <item quantity="one">tomorrow</item>
+        <item quantity="other">in %d days</item>
+    </plurals>
+    <string name="last_week">last week</string>
+    <string name="next_week">in a week</string>
+    <string name="today">today</string>
+    <string name="search">Search</string>
+    <string name="scheduled">scheduled</string>
+    <string name="resume">Resume</string>
+    <string name="edit">Edit</string>
+    <string name="selected" tools:ignore="PrivateResource" formatted="true">Selected: %1$s</string>
+    <string name="appearance">Appearance</string>
+    <string name="appearance_subtitle">Theme, colors, date format</string>
+    <string name="use_dynamic_colors">Dynamic colors</string>
+    <string name="theme">Theme</string>
+    <string name="theme_dark">Dark theme</string>
+    <string name="theme_light">Light theme</string>
+    <string name="theme_system">System theme</string>
+    <string name="date_format">Date format</string>
+    <string name="corrupt">corrupt</string>
+    <string name="cancel">Cancel</string>
+    <string name="ok">OK</string>
+    <string name="date_format_slash_d_m_yy">d/M/yy</string>
+    <string name="date_format_slash_dd_mm_yy">dd/MM/yy</string>
+    <string name="date_format_slash_mm_dd_yy">MM/dd/yy</string>
+    <string name="date_format_dash_yyyy_mm_dd">yyyy-MM-dd</string>
+    <string name="date_format_space_dd_mmm_yyyy">dd MMM yyyy</string>
+    <string name="date_format_space_mmm_dd_yyyy">MMM dd, yyyy</string>
+    <string name="card_repository">Card repository</string>
+    <string name="card_repository_subtitle">Card repository, branch, token</string>
+    <string name="repository">Repository</string>
+    <string name="branch">Branch</string>
+    <string name="token">Token</string>
+    <string name="reload">Reload</string>
+</resources>

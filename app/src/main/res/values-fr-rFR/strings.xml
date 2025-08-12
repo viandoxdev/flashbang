@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <string name="search">Rechercher</string>
+    <string name="scheduled">programmé</string>
+    <string name="resume">Continuer</string>
+    <string name="edit">Modifier</string>
+    <string name="selected">Sélection : %1$s</string>
+    <plurals name="card_count">
+        <item quantity="one">%d carte</item>
+        <item quantity="other">%d cartes</item>
+        <item quantity="many">%d cartes</item>
+    </plurals>
+    <plurals name="days_before" tools:ignore="MissingQuantity">
+        <item quantity="one" tools:ignore="ImpliedQuantity">hier</item>
+        <item quantity="other">il y a %d jours</item>
+    </plurals>
+    <plurals name="days_ahead" tools:ignore="MissingQuantity">
+        <item quantity="one" tools:ignore="ImpliedQuantity">demain</item>
+        <item quantity="other">dans %d jours</item>
+    </plurals>
+    <string name="last_week">la semaine dernière</string>
+    <string name="next_week">dans une semaine</string>
+    <string name="today">aujourd\'hui</string>
+    <string name="appearance">Apparance</string>
+    <string name="appearance_subtitle">Thème, couleurs, format des dates</string>
+    <string name="use_dynamic_colors">Couleurs dynamiques</string>
+    <string name="theme">Thème</string>
+    <string name="theme_dark">Thème sombre</string>
+    <string name="theme_light">Thème clair</string>
+    <string name="theme_system">Thème système</string>
+    <string name="date_format">Format des dates</string>
+    <string name="corrupt">corrompu</string>
+    <string name="cancel">Annuler</string>
+    <string name="ok">OK</string>
+    <string name="date_format_slash_d_m_yy">j/m/aa</string>
+    <string name="date_format_slash_dd_mm_yy">jj/mm/aa</string>
+    <string name="date_format_slash_mm_dd_yy">mm/jj/aa</string>
+    <string name="date_format_dash_yyyy_mm_dd">aaaa-mm-jj</string>
+    <string name="date_format_space_dd_mmm_yyyy">jj mmm aaaa</string>
+    <string name="date_format_space_mmm_dd_yyyy">mmm jj, aaaa</string>
+    <string name="card_repository">Dépôt des cartes</string>
+    <string name="card_repository_subtitle">Dépôt, branche, jeton</string>
+    <string name="repository">Dépôt</string>
+    <string name="branch">Branche</string>
+    <string name="token">Jeton</string>
+    <string name="reload">Recharger</string>
+</resources>
