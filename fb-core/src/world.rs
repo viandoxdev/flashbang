@@ -12,7 +12,7 @@ use log::{trace, warn};
 use parking_lot::Mutex;
 use reqwest::{StatusCode, blocking::Client};
 use typst::{
-    Library, World,
+    Library, World as TypstWorld,
     diag::{FileError, FileResult},
     foundations::Bytes,
     layout::{Page, PagedDocument},
@@ -24,7 +24,7 @@ use typst_kit::fonts::{FontSearcher, FontSlot};
 use walkdir::WalkDir;
 
 use crate::{
-    cards::{Card, CardHandle, CardStore, FuzzyStatus, SourceConfig},
+    cards::{Card, CardStore, FuzzyStatus, SourceConfig},
     github::GithubAPI,
 };
 
@@ -50,7 +50,7 @@ impl FileSlot {
         }
     }
 
-    fn source(&self, world: &CardWorld) -> FileResult<Source> {
+    fn source(&self, world: &World) -> FileResult<Source> {
         self.source
             .get_or_init(|| {
                 let path = world.get_physical_path(&self.id);
@@ -64,7 +64,7 @@ impl FileSlot {
             .map_err(|err| err.clone())
     }
 
-    fn bytes(&self, world: &CardWorld) -> FileResult<Bytes> {
+    fn bytes(&self, world: &World) -> FileResult<Bytes> {
         self.bytes
             .get_or_init(|| {
                 let path = world.get_physical_path(&self.id);
@@ -101,7 +101,7 @@ impl Display for LoadError {
 impl Error for LoadError {}
 
 #[derive(uniffi::Object)]
-pub struct CardWorld {
+pub struct World {
     /// Source config used for cards source building
     config: Mutex<SourceConfig>,
     store: Mutex<CardStore>,
@@ -119,7 +119,7 @@ pub struct CardWorld {
     /// latest commit to the cards repository, this avoids api spam.
     sha: FileId,
     /// List of the cards that need to be rendered
-    cards: Mutex<Vec<CardHandle>>,
+    cards: Mutex<Vec<Card>>,
     /// Client used for package downloading
     client: Client,
 
@@ -129,7 +129,7 @@ pub struct CardWorld {
     book: LazyHash<FontBook>,
 }
 
-impl CardWorld {
+impl World {
     /// Create a new empty world, this should probably be followed by a load_from_github call to
     /// fill the world
     pub fn empty(cache_path: PathBuf, config: SourceConfig) -> Self {
@@ -290,12 +290,13 @@ impl CardWorld {
 
         trace!("Initilization done, clearing store");
 
-        self.store.lock().clear();
-
         let latest_sha = self.latest_sha();
 
         if latest_sha == api.sha {
             trace!("SHAs match ! I will load all the files I can");
+
+            self.store.lock().mark_cards_for_garbage_collection();
+
             // We can use cached data
             for entry in WalkDir::new(self.cache_path.join("workdir"))
                 .into_iter()
@@ -312,6 +313,7 @@ impl CardWorld {
             }
 
             self.store.lock().sha = latest_sha;
+            self.store.lock().collect_garbage();
 
             return Ok(errors);
         }
@@ -337,6 +339,8 @@ impl CardWorld {
 
         trace!("Going to process all repository items");
 
+        self.store.lock().mark_cards_for_garbage_collection();
+
         for item in items {
             trace!("Item: {}", &item.path);
 
@@ -357,6 +361,7 @@ impl CardWorld {
 
         trace!("Done, saving SHA");
 
+        self.store.lock().collect_garbage();
         self.store.lock().sha = api.sha.clone();
         self.save_sha(api.sha)?;
 
@@ -370,10 +375,10 @@ impl CardWorld {
 
 /// Newtype around typst::layout::Page because I need it to derive uniffi::Object
 #[derive(uniffi::Object)]
-pub struct MyPage(Page);
+pub struct CardPage(Page);
 
 #[uniffi::export]
-impl MyPage {
+impl CardPage {
     pub fn svg(&self) -> String {
         typst_svg::svg(&self.0)
     }
@@ -421,87 +426,7 @@ impl AnyError {
 }
 
 
-#[uniffi::export]
-impl CardWorld {
-    #[uniffi::constructor]
-    pub fn _empty(cache_path: String, config: SourceConfig) -> Self {
-        Self::empty(PathBuf::from(&cache_path), config)
-    }
-
-    #[uniffi::method(name = "setSourceConfig")]
-    pub fn set_source_config(&self, config: SourceConfig) {
-        *self.config.lock() = config
-    }
-
-    #[uniffi::method(name = "setSelectedCards")]
-    pub fn set_selected_cards(&self, cards: Vec<CardHandle>) {
-        *self.cards.lock() = cards;
-    }
-
-    #[uniffi::method(name = "loadFromGithub")]
-    pub fn _load_from_github(
-        &self,
-        repo: String,
-        branch: String,
-        token: Option<String>,
-    ) -> Result<Vec<LoadError>, AnyError> {
-        self.load_from_github(repo, branch, token)
-            .map_err(AnyError::from_error)
-    }
-
-    pub fn compile(&self) -> Result<Vec<Arc<MyPage>>, AnyError> {
-        let output = typst::compile::<PagedDocument>(&self)
-            .output
-            .map_err(|errors| {
-                let str = format!("{errors:?}");
-                AnyError {
-                    display: str.to_string(),
-                    debug: str.to_string(),
-                }
-            })?;
-
-        Ok(output
-            .pages
-            .into_iter()
-            .map(|p| Arc::new(MyPage(p)))
-            .collect_vec())
-    }
-
-    #[uniffi::method(name = "newCachedDirectories")]
-    pub fn new_cached_directories(&self) -> Vec<String> {
-        self.new_directories
-            .lock()
-            .drain(..)
-            .map(|p| p.to_string_lossy().to_string())
-            .collect_vec()
-    }
-
-    #[uniffi::method(name = "cards")]
-    pub fn _cards(&self) -> Vec<Arc<Card>> {
-        self.store.lock()._cards()
-    }
-
-    pub fn tags(&self) -> Vec<String> {
-        self.store.lock()._tags()
-    }
-
-    #[uniffi::method(name = "fuzzyInit")]
-    pub fn fuzzy_init(&self, pattern: String) {
-        self.store.lock().fuzzy_init(&pattern);
-    }
-
-    #[uniffi::method(name = "fuzzyTick")]
-    pub fn fuzzy_tick(&self) -> FuzzyStatus {
-        self.store.lock().fuzzy_tick()
-    }
-
-    #[uniffi::method(name = "fuzzyResults")]
-    pub fn fuzzy_results(&self) -> Vec<CardHandle> {
-        self.store.lock().fuzzy_results()
-    }
-}
-
-impl World for CardWorld {
+impl TypstWorld for World {
     fn library(&self) -> &LazyHash<Library> {
         &self.library
     }
@@ -516,7 +441,7 @@ impl World for CardWorld {
             match self
                 .store
                 .lock()
-                .build_source(self.cards.lock().iter().copied(), *self.config.lock())
+                .build_source(self.cards.lock().iter().cloned(), *self.config.lock())
             {
                 Ok(content) => Ok(Source::new(id, content)),
                 Err(err) => {
@@ -557,5 +482,82 @@ impl World for CardWorld {
     }
     fn today(&self, _offset: Option<i64>) -> Option<typst::foundations::Datetime> {
         None
+    }
+}
+
+#[uniffi::export]
+impl World {
+    #[uniffi::constructor]
+    fn _empty(cache_path: String, config: SourceConfig) -> Self {
+        Self::empty(PathBuf::from(&cache_path), config)
+    }
+
+    #[uniffi::method(name = "setSourceConfig")]
+    fn _set_source_config(&self, config: SourceConfig) {
+        *self.config.lock() = config
+    }
+
+    #[uniffi::method(name = "setSelectedCards")]
+    fn _set_selected_cards(&self, cards: Vec<Card>) {
+        *self.cards.lock() = cards;
+    }
+
+    #[uniffi::method(name = "loadFromGithub")]
+    fn _load_from_github(
+        &self,
+        repo: String,
+        branch: String,
+        token: Option<String>,
+    ) -> Result<Vec<LoadError>, AnyError> {
+        self.load_from_github(repo, branch, token)
+            .map_err(AnyError::from_error)
+    }
+
+    #[uniffi::method(name = "compile")]
+    fn _compile(&self) -> Result<Vec<Arc<CardPage>>, AnyError> {
+        let output = typst::compile::<PagedDocument>(&self)
+            .output
+            .map_err(|errors| {
+                let str = format!("{errors:?}");
+                AnyError {
+                    display: str.to_string(),
+                    debug: str.to_string(),
+                }
+            })?;
+
+        Ok(output
+            .pages
+            .into_iter()
+            .map(|p| Arc::new(CardPage(p)))
+            .collect_vec())
+    }
+
+    #[uniffi::method(name = "newCachedDirectories")]
+    fn _new_cached_directories(&self) -> Vec<String> {
+        self.new_directories
+            .lock()
+            .drain(..)
+            .map(|p| p.to_string_lossy().to_string())
+            .collect_vec()
+    }
+
+    #[uniffi::method(name = "cards")]
+    fn _cards(&self) -> Vec<Card> {
+        self.store.lock()._cards()
+    }
+
+    #[uniffi::method(name = "fuzzyInit")]
+    fn _fuzzy_init(&self, pattern: String) {
+        self.store.lock().fuzzy_init(&pattern);
+    }
+
+    #[uniffi::method(name = "fuzzyTick")]
+    fn _fuzzy_tick(&self) -> FuzzyStatus {
+        self.store.lock().fuzzy_tick()
+    }
+
+    #[uniffi::method(name = "fuzzyResults")]
+    fn _fuzzy_results(&self) -> Vec<Card> {
+        self.store.lock().fuzzy_results()
     }
 }

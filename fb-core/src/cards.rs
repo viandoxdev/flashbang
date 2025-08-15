@@ -3,13 +3,14 @@
 //!  - splitting
 //!  - building typst source files
 
-use std::collections::HashMap;
 use std::error::Error;
 use std::fmt::Display;
-use std::iter::once;
-use std::ops::Deref;
 use std::sync::Arc;
 use std::usize;
+use std::{
+    collections::{HashMap, HashSet},
+    hash::Hash,
+};
 
 use itertools::Itertools;
 use nucleo::{
@@ -18,70 +19,129 @@ use nucleo::{
 };
 use parking_lot::Mutex;
 
-use crate::new_type_index;
+use crate::arc_struct;
 
-new_type_index!(Tag);
-new_type_index!(CardHandle);
-new_type_index!(HeaderHandle);
+arc_struct! {
+    pub struct Tag {
+        inner TagInner {
+            name: String,
+            full_path: String,
+        }
 
-uniffi::custom_newtype!(CardPath, Vec<Tag>);
+        state TagState {
+            children: HashSet<Tag>,
+            cards: HashSet<CardWeak>,
+            indirect_cards: HashSet<CardWeak>,
+        }
+    }
 
-/// Cards have a set of paths: different locations they may be found at.
-/// These are sequences of tags (i.e Math.Algebra.Field)
-#[derive(Clone, Debug)]
-pub struct CardPath(Vec<Tag>);
+    struct Header {
+        inner HeaderInner {
+            content: String
+        }
+    }
 
-impl Deref for CardPath {
-    type Target = Vec<Tag>;
-    fn deref(&self) -> &Self::Target {
-        &self.0
+    pub struct Card {
+        weak CardWeak;
+
+        inner CardInner {
+            pub id: String,
+        }
+
+        state CardState {
+            pub name: String,
+            pub locations: Vec<Tag>,
+            header: Option<Header>,
+            /// Typst source for the question
+            question: String,
+            /// Typst source for the answer
+            answer: String,
+        }
     }
 }
 
-impl CardPath {
-    fn from_str(s: &str, store: &mut CardStore) -> Self {
-        Self(
-            // Add a . at the end of the iterator
-            (s.char_indices().chain(once((s.len(), '.'))))
-                .filter_map(|(i, c)| (c == '.').then_some(i)) // keep the positions of '.'s
-                .map(|i| store.tag(&s[..i])) // Grab views of the string: 'Maths', 'Maths.Algebra', ... and get the tag
-                .collect(),
-        )
+impl Tag {
+    fn new(full_path: &str, store: &mut CardStore) -> Self {
+        // Find the index of the last '.' character
+        // The tag's name is str[index..], the rest is there to make sure we can
+        // distinguish between to tags of the same name under different paths :
+        //  Maths.Algebra.Theorems != Maths.Calculus.Theorems
+        let index = full_path
+            .char_indices()
+            .rev()
+            .find_map(|(i, c)| (c == '.').then_some(i + 1))
+            .unwrap_or(0);
+        let inner = TagInner {
+            name: full_path[index..].to_owned(),
+            full_path: full_path.to_owned(),
+            state: Mutex::new(TagState {
+                children: HashSet::new(),
+                cards: HashSet::new(),
+                indirect_cards: HashSet::new(),
+            }),
+        };
+
+        let tag = Tag(Arc::new(inner));
+
+        if let Some(parent) = tag.parent(store) {
+            parent.add_child(tag.clone());
+        }
+
+        tag
+    }
+
+    fn ancestors(&self, store: &mut CardStore) -> impl Iterator<Item = Tag> {
+        self.full_path
+            .char_indices()
+            .filter(|&(_, c)| c == '.')
+            .map(|(i, _)| store.tag(&self.full_path[0..i]))
+    }
+
+    fn parent(&self, store: &mut CardStore) -> Option<Tag> {
+        self.ancestors(store).last()
+    }
+
+    fn add_child(&self, child: Tag) {
+        self.state.lock().children.insert(child);
+    }
+
+    fn add_card(&self, card: &Card) {
+        self.state.lock().cards.insert(card.downgrade());
+        self.state.lock().indirect_cards.insert(card.downgrade());
+    }
+
+    fn add_card_indirect(&self, card: &Card) {
+        self.state.lock().indirect_cards.insert(card.downgrade());
     }
 }
 
-/// Represents a card's content
-#[derive(Clone, Debug, uniffi::Object)]
-pub struct Card {
-    pub name: String,
-    pub id: String,
-    pub paths: Vec<CardPath>,
-    header: Option<HeaderHandle>,
-    /// Typst source for the question
-    question: String,
-    /// Typst source for the answer
-    answer: String,
-    /// Its own handle in the CardStore
-    pub handle: CardHandle,
+impl Header {
+    pub fn new(content: &str) -> Self {
+        Header(Arc::new(HeaderInner {
+            content: content.to_owned(),
+        }))
+    }
 }
 
-#[uniffi::export]
 impl Card {
-    #[uniffi::method(name = "name")]
-    pub fn _name(&self) -> String {
-        self.name.clone()
-    }
-    #[uniffi::method(name = "id")]
-    pub fn _id(&self) -> String {
-        self.id.clone()
-    }
-    #[uniffi::method(name = "paths")]
-    pub fn _paths(&self) -> Vec<CardPath> {
-        self.paths.clone()
-    }
-    #[uniffi::method(name = "handle")]
-    pub fn _handle(&self) -> CardHandle {
-        self.handle
+    fn new(
+        id: String,
+        name: String,
+        header: Option<Header>,
+        locations: Vec<Tag>,
+        question: String,
+        answer: String,
+    ) -> Self {
+        Card(Arc::new(CardInner {
+            id,
+            state: Mutex::new(CardState {
+                header,
+                name: name.to_owned(),
+                locations,
+                question: question.to_owned(),
+                answer: answer.to_owned(),
+            }),
+        }))
     }
 }
 
@@ -116,20 +176,19 @@ impl Display for Rating {
 pub struct CardStore {
     tags_map: HashMap<String, Tag>,
     /// Fuzzy finding utilities
-    nucleo: Arc<Mutex<Nucleo<CardHandle>>>,
-    injector: Arc<Injector<CardHandle>>,
+    nucleo: Arc<Mutex<Nucleo<Card>>>,
+    injector: Arc<Injector<Card>>,
+    /// Garbage collection for cards (when reloading)
+    garbage: HashSet<String>,
     /// Sha of the commit this store was based off
     pub sha: String,
-    /// Name of tags
-    pub tags: Vec<String>,
     /// Cards
-    pub cards: Vec<Card>,
-    pub headers: Vec<String>,
+    pub cards: HashMap<String, Card>,
 }
 
 impl Default for CardStore {
     fn default() -> Self {
-        let nucleo = Nucleo::<CardHandle>::new(nucleo::Config::DEFAULT, Arc::new(|| {}), None, 1);
+        let nucleo = Nucleo::<Card>::new(nucleo::Config::DEFAULT, Arc::new(|| {}), None, 1);
         let injector = nucleo.injector();
 
         Self {
@@ -137,9 +196,8 @@ impl Default for CardStore {
             injector: Arc::new(injector),
             sha: "".to_owned(),
             tags_map: HashMap::new(),
-            tags: Vec::new(),
-            cards: Vec::new(),
-            headers: Vec::new(),
+            cards: HashMap::new(),
+            garbage: HashSet::new(),
         }
     }
 }
@@ -151,19 +209,6 @@ pub struct SourceConfig {
     pub page_width: u32,
     // Text size in pt
     pub text_size: u32,
-}
-
-#[uniffi::export]
-impl CardStore {
-    #[uniffi::method(name = "cards")]
-    pub fn _cards(&self) -> Vec<Arc<Card>> {
-        self.cards.iter().map(|c| Arc::new(c.clone())).collect_vec()
-    }
-
-    #[uniffi::method(name = "tags")]
-    pub fn _tags(&self) -> Vec<String> {
-        self.tags.clone()
-    }
 }
 
 #[derive(Debug, Clone, Copy, uniffi::Enum)]
@@ -186,37 +231,16 @@ impl From<nucleo::Status> for FuzzyStatus {
 }
 
 impl CardStore {
-    pub fn clear(&mut self) {
-        self.nucleo.lock().restart(true);
-        self.injector = Arc::new(self.nucleo.lock().injector());
-        self.sha = "".to_string();
-        self.tags.clear();
-        self.cards.clear();
-        self.headers.clear();
-        self.tags_map.clear();
-    }
-
     /// Get (potentially store) a tag from its string path
     /// str must be the full path of the tag:
     ///     "Maths.Algebra.Theorems" for the "Theorems" tag
     fn tag(&mut self, str: &str) -> Tag {
-        if let Some(&tag) = self.tags_map.get(str) {
-            tag
+        if let Some(tag) = self.tags_map.get(str) {
+            tag.clone()
         } else {
-            // Find the index of the last '.' character
-            // The tag's name is str[index..], the rest is there to make sure we can
-            // distinguish between to tags of the same name under different paths :
-            //  Maths.Algebra.Theorems != Maths.Calculus.Theorems
-            let index = str
-                .char_indices()
-                .rev()
-                .filter_map(|(i, c)| (c == '.').then_some(i + 1))
-                .next()
-                .unwrap_or(0);
+            let tag = Tag::new(str, self);
 
-            let tag = Tag(self.tags.len() as u64);
-            self.tags.push(str[index..].to_owned());
-            self.tags_map.insert(str.to_owned(), tag);
+            self.tags_map.insert(str.to_owned(), tag.clone());
             tag
         }
     }
@@ -224,49 +248,43 @@ impl CardStore {
     /// Build the source for a set of cards and a config
     pub fn build_source(
         &self,
-        cards: impl IntoIterator<Item = CardHandle>,
+        cards: impl IntoIterator<Item = Card>,
         config: SourceConfig,
     ) -> Result<String, std::io::Error> {
         use std::io::Write;
 
-        const NO_HEADER: Option<HeaderHandle> = Some(HeaderHandle(usize::MAX as u64));
-
         let mut w = Vec::new();
-        let mut last_header = NO_HEADER;
+        let mut last_header = None;
+
         writeln!(&mut w, "#import \"cards_internal.typ\": *")?;
         writeln!(&mut w, "#show: setup")?;
         writeln!(&mut w, "#set page(width: {}pt)", config.page_width)?;
         writeln!(&mut w, "#set text(size: {}pt)", config.text_size)?;
+        writeln!(&mut w, "#[")?;
+
         for card in cards {
-            let card = &self.cards[card.index()];
+            let state = card.state.lock();
 
-            if last_header != card.header {
-                if last_header != NO_HEADER {
-                    writeln!(&mut w, "]")?;
-                }
+            if last_header != state.header {
+                writeln!(&mut w, "]")?;
                 writeln!(&mut w, "#[")?;
-                if let Some(handle) = card.header {
-                    writeln!(&mut w, "{}", self.headers[handle.index()])?;
+
+                if let Some(header) = (&state.header).as_ref() {
+                    writeln!(&mut w, "{}", header.content)?;
                 }
 
-                last_header = card.header;
+                last_header = state.header.clone();
             }
 
-            write!(&mut w, "#card(\"{}\", \"{}\", (", card.id, card.name)?;
-            for path in &card.paths {
-                write!(&mut w, "\"")?;
-                for chunk in
-                    Itertools::intersperse(path.iter().map(|&t| self.tags[t.index()].as_str()), ".")
-                {
-                    write!(&mut w, "{}", chunk)?;
-                }
-                write!(&mut w, "\",")?;
+            write!(&mut w, "#card(\"{}\", \"{}\", (", card.id, state.name)?;
+            for tag in &state.locations {
+                write!(&mut w, "\"{}\",", tag.full_path)?;
             }
             writeln!(&mut w, "))")?;
 
-            write!(&mut w, "{}", card.question)?;
+            write!(&mut w, "{}", state.question)?;
             writeln!(&mut w, "#answer")?;
-            write!(&mut w, "{}", card.answer)?;
+            write!(&mut w, "{}", state.answer)?;
         }
 
         String::from_utf8(w).map_err(|_| {
@@ -274,7 +292,23 @@ impl CardStore {
         })
     }
 
+    /// Mark as cards as unused, for the next collect_garbage call. This is reset for cards that
+    /// are loaded (see load)
+    pub fn mark_cards_for_garbage_collection(&mut self) {
+        self.garbage.extend(self.cards.keys().cloned());
+    }
+
     /// Load a typst card source file into the store
+    ///
+    /// For reloads, use with garbage collection to avoid keeping removed cards in memmory:
+    /// ```rust
+    /// store.mark_cards_for_garbage_collection();
+    /// for content in files {
+    ///     store.load(content);
+    /// }
+    /// // This removes the cards that weren't reloaded from the store
+    /// store.collect_garbage()
+    /// ```
     pub fn load<'a>(&mut self, content: &'a str) -> Result<(), Box<dyn Error + 'a>> {
         if content.starts_with("//![FLASHBANG IGNORE]")
             || content.starts_with("//![FLASHBANG INCLUDE]")
@@ -306,23 +340,23 @@ impl CardStore {
             let (input, _) = (tag("#"), ws(tag("card"))).parse(input)?;
             let (input, (_, id, _)) = (tag("("), ws(string), tag(",")).parse(input)?;
             let (input, (name, _)) = (ws(string), tag(",")).parse(input)?;
-            let (input, paths) = delimited(
+            let (input, locations) = delimited(
                 ws(tag("(")),
                 terminated(separated_list0(ws(tag(",")), string), opt(ws(tag(",")))),
                 ws(tag(")")),
             )
             .parse(input)?;
             let (input, _) = ws(tag(")")).parse(input)?;
-            Ok((input, (id, name, paths)))
+            Ok((input, (id, name, locations)))
         }
 
         fn card(input: &str) -> IResult<&str, (&str, &str, Vec<&str>, &str, &str)> {
-            let (input, (id, name, paths)) = card_header(input)?;
+            let (input, (id, name, locations)) = card_header(input)?;
             let (input, (question, _)) = (take_until("#answer"), tag("#answer")).parse(input)?;
             let (input, answer) = take_until::<&str, &str, Error<&str>>("#card")
                 .parse(input)
                 .unwrap_or(("", input));
-            Ok((input, (id, name, paths, question, answer)))
+            Ok((input, (id, name, locations, question, answer)))
         }
 
         // Skip before header (if any)
@@ -343,9 +377,7 @@ impl CardStore {
 
         // Save header
         let header = if !header.is_empty() && has_header {
-            let index = self.headers.len();
-            self.headers.push(header.to_string());
-            Some(index.into())
+            Some(Header::new(header))
         } else {
             None
         };
@@ -353,29 +385,43 @@ impl CardStore {
         // Parse cards
         let (_, (cards, _)) = many_till(card, eof).parse(content)?;
 
-        // Resolve tags, names, handles
-        for (id, name, paths, question, answer) in cards {
-            let paths = paths
-                .into_iter()
-                .map(|s| CardPath::from_str(s, self))
-                .collect();
+        // Resolve tags and names
+        for (id, name, locations, question, answer) in cards {
+            let locations = locations.into_iter().map(|t| self.tag(t)).collect_vec();
+            let id = id.to_owned();
 
-            let handle: CardHandle = self.cards.len().into();
+            self.garbage.remove(&id);
 
-            self.cards.push(Card {
-                header,
-                id: id.to_owned(),
-                name: name.to_owned(),
-                paths,
-                question: question.to_owned(),
-                answer: answer.to_owned(),
-                handle,
-            });
+            let card = Card::new(
+                id.clone(),
+                name.to_owned(),
+                header.clone(),
+                locations.clone(),
+                question.to_owned(),
+                answer.to_owned(),
+            );
 
-            self.injector.push(handle, |_, row| row[0] = name.into());
+            // Register card in tags
+            for tag in &locations {
+                tag.add_card(&card);
+
+                for ancestor in tag.ancestors(self) {
+                    ancestor.add_card_indirect(&card);
+                }
+            }
+
+            self.cards.insert(id, card.clone());
+            self.injector.push(card, |_, row| row[0] = name.into());
         }
 
         Ok(())
+    }
+
+    /// Remove all cards that were marked for garbage collection.
+    pub fn collect_garbage(&mut self) {
+        for id in self.garbage.drain() {
+            self.cards.remove(&id);
+        }
     }
 
     pub fn fuzzy_init(&self, pattern: &str) {
@@ -392,7 +438,66 @@ impl CardStore {
         self.nucleo.lock().tick(500).into()
     }
 
-    pub fn fuzzy_results(&self) -> Vec<CardHandle> {
-        self.nucleo.lock().snapshot().matched_items(..).map(|item| *item.data).collect_vec()
+    pub fn fuzzy_results(&self) -> Vec<Card> {
+        self.nucleo
+            .lock()
+            .snapshot()
+            .matched_items(..)
+            .map(|item| item.data.clone())
+            .collect_vec()
+    }
+}
+
+#[uniffi::export]
+impl TagInner {
+    #[uniffi::method(name = "name")]
+    pub fn _name(&self) -> String {
+        self.name.clone()
+    }
+    #[uniffi::method(name = "fullPath")]
+    pub fn _full_path(&self) -> String {
+        self.full_path.clone()
+    }
+    #[uniffi::method(name = "cards")]
+    pub fn _cards(&self) -> Vec<Card> {
+        self.state
+            .lock()
+            .cards
+            .iter()
+            .filter_map(|w| w.upgrade())
+            .collect_vec()
+    }
+    #[uniffi::method(name = "indirectCards")]
+    pub fn _indirect_cards(&self) -> Vec<Card> {
+        self.state
+            .lock()
+            .indirect_cards
+            .iter()
+            .filter_map(|w| w.upgrade())
+            .collect_vec()
+    }
+}
+
+#[uniffi::export]
+impl CardInner {
+    #[uniffi::method(name = "name")]
+    pub fn _name(&self) -> String {
+        self.state.lock().name.clone()
+    }
+    #[uniffi::method(name = "id")]
+    pub fn _id(&self) -> String {
+        self.id.clone()
+    }
+    #[uniffi::method(name = "paths")]
+    pub fn _locations(&self) -> Vec<Tag> {
+        self.state.lock().locations.clone()
+    }
+}
+
+#[uniffi::export]
+impl CardStore {
+    #[uniffi::method(name = "cards")]
+    pub fn _cards(&self) -> Vec<Card> {
+        self.cards.values().cloned().collect_vec()
     }
 }
