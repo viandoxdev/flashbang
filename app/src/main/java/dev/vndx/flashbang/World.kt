@@ -4,8 +4,7 @@ import android.app.Application
 import android.os.storage.StorageManager
 import android.util.Log
 import uniffi.mobile.Card
-import uniffi.mobile.CardHandle
-import uniffi.mobile.CardWorld
+import uniffi.mobile.World as FFIWorld
 import uniffi.mobile.FuzzyStatus
 import uniffi.mobile.LoadError
 import uniffi.mobile.SourceConfig
@@ -14,7 +13,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Singleton wrapper around ffi CardWorld
+ * Singleton wrapper around ffi World
  */
 @Singleton
 class World @Inject constructor(private val context: Application) {
@@ -22,7 +21,7 @@ class World @Inject constructor(private val context: Application) {
     private val cachePath = context.cacheDir.absolutePath
     // SourceConfig doesn't matter, since we'll be updating it at every render anyways,
     // these are just sensible defaults in case something breaks weirdly
-    private val world = CardWorld.empty(cachePath, SourceConfig(400u, 12u))
+    private val world = FFIWorld.empty(cachePath, SourceConfig(400u, 12u))
 
     fun loadFromGithub(repo: String, branch: String, token: String?): List<LoadError> {
         val errors = world.loadFromGithub(repo, branch, token).onEach {
@@ -38,9 +37,8 @@ class World @Inject constructor(private val context: Application) {
     }
 
     fun cards(): List<Card> = world.cards()
-    fun tagNames(): List<String> = world.tags()
 
     fun fuzzyInit(pattern: String) = world.fuzzyInit(pattern)
     fun fuzzyTick(): FuzzyStatus = world.fuzzyTick()
-    fun fuzzyResults(): List<CardHandle> = world.fuzzyResults()
+    fun fuzzyResults(): List<Card> = world.fuzzyResults()
 }

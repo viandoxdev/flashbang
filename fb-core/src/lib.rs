@@ -6,6 +6,7 @@ mod cards;
 mod world;
 mod github;
 mod studies;
+mod fsrs;
 
 // We're trying to get close to the OOP model here (because it makes working with kotlin easier /
 // cleaner).
@@ -88,7 +89,7 @@ macro_rules! arc_struct {
         },
         $(attr: $attr:meta,)?
     ) => {
-        $($attr)?
+        $(#[$attr])?
         $v struct $name {
             $($fields)*
         }

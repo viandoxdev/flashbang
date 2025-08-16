@@ -23,30 +23,29 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.vndx.flashbang.ui.Directory
 import dev.vndx.flashbang.ui.Flashcard
 import dev.vndx.flashbang.ui.Sizes
-import dev.vndx.flashbang.ui.TagInfo
 import kotlinx.serialization.Serializable
-import uniffi.mobile.CardHandle
+import uniffi.mobile.Card
 import uniffi.mobile.Tag
 import javax.inject.Inject
 
 @HiltViewModel
 class SelectionViewModel @Inject constructor() : ViewModel() {
-    private val selection = mutableStateSetOf<CardHandle>()
+    private val selection = mutableStateSetOf<Card>()
 
-    fun isSelected(card: CardHandle): Boolean =
+    fun isSelected(card: Card): Boolean =
         selection.contains(card)
 
-    fun toggleCard(card: CardHandle) {
+    fun toggleCard(card: Card) {
         if (!selection.add(card)) {
             selection.remove(card)
         }
     }
 
-    fun deselectCard(card: CardHandle) {
+    fun deselectCard(card: Card) {
         selection.remove(card)
     }
 
-    fun selectCard(card: CardHandle) {
+    fun selectCard(card: Card) {
         selection.add(card)
     }
 }
@@ -69,24 +68,23 @@ class SelectionScreen() : ExploreScreen() {
 
     @Composable
     override fun Flashcard(
-        handle: CardHandle,
-        name: String,
+        card: Card,
         scheduled: Boolean,
     ) {
         // selection is an @Composable getter, so needs to be called in this scope
         val selection = selection
-        val selected = selection.isSelected(handle)
+        val selected = selection.isSelected(card)
 
         Flashcard(
-            name = name,
+            name = card.name(),
             scheduled = false,
-            onClick = { selection.toggleCard(handle) }
+            onClick = { selection.toggleCard(card) }
         ) {
 
             CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Companion.Unspecified) {
                 Checkbox(
                     checked = selected,
-                    onCheckedChange = { selection.toggleCard(handle) },
+                    onCheckedChange = { selection.toggleCard(card) },
                     modifier = Modifier
                         .align(Alignment.Companion.Top)
                         .padding(0.dp, Sizes.spacingLarge, 0.dp)
@@ -96,22 +94,22 @@ class SelectionScreen() : ExploreScreen() {
     }
 
     @Composable
-    override fun Directory(tag: TagInfo, onClick: () -> Unit) {
+    override fun Directory(tag: Tag, onClick: () -> Unit) {
         val selection = selection
 
         val state by remember {
             derivedStateOf {
                 when {
-                    tag.indirectCards.all { selection.isSelected(it) } -> ToggleableState.On
-                    tag.indirectCards.none { selection.isSelected(it) } -> ToggleableState.Off
+                    tag.indirectCards().all { selection.isSelected(it) } -> ToggleableState.On
+                    tag.indirectCards().none { selection.isSelected(it) } -> ToggleableState.Off
                     else -> ToggleableState.Indeterminate
                 }
             }
         }
 
         Directory(
-            name = tag.name,
-            cards = tag.indirectCards.size,
+            name = tag.name(),
+            cards = tag.indirectCards().size,
             onClick = onClick
         ) {
             CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Companion.Unspecified) {
@@ -119,13 +117,13 @@ class SelectionScreen() : ExploreScreen() {
                     state = state,
                     onClick = {
                         when (state) {
-                            ToggleableState.Off -> tag.indirectCards.forEach {
+                            ToggleableState.Off -> tag.indirectCards().forEach {
                                 selection.selectCard(
                                     it
                                 )
                             }
 
-                            else -> tag.indirectCards.forEach { selection.deselectCard(it) }
+                            else -> tag.indirectCards().forEach { selection.deselectCard(it) }
                         }
                     },
                     modifier = Modifier

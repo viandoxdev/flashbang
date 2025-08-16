@@ -24,8 +24,8 @@ use typst_kit::fonts::{FontSearcher, FontSlot};
 use walkdir::WalkDir;
 
 use crate::{
-    cards::{Card, CardStore, FuzzyStatus, SourceConfig},
-    github::GithubAPI,
+    cards::{Card, CardStore, FuzzyStatus, SourceConfig, Tag},
+    github::GithubAPI, studies::{Study, StudyState, StudyStore},
 };
 
 /// The default Typst registry.
@@ -104,7 +104,8 @@ impl Error for LoadError {}
 pub struct World {
     /// Source config used for cards source building
     config: Mutex<SourceConfig>,
-    store: Mutex<CardStore>,
+    cards: Mutex<CardStore>,
+    studies: Mutex<StudyStore>,
     /// Path of the cache directory
     cache_path: PathBuf,
     /// List of newly created directories that need to be marked as group for android caching
@@ -119,7 +120,7 @@ pub struct World {
     /// latest commit to the cards repository, this avoids api spam.
     sha: FileId,
     /// List of the cards that need to be rendered
-    cards: Mutex<Vec<Card>>,
+    selected_cards: Mutex<Vec<Card>>,
     /// Client used for package downloading
     client: Client,
 
@@ -140,9 +141,10 @@ impl World {
             .search();
         let book = LazyHash::new(fonts.book);
         let fonts = fonts.fonts;
-        let store = Mutex::new(CardStore::default());
+        let cards = Mutex::new(CardStore::default());
+        let studies = Mutex::new(StudyStore::default());
         let files = Mutex::new(HashMap::new());
-        let cards = Mutex::new(Vec::new());
+        let selected_cards = Mutex::new(Vec::new());
         let main = FileId::new(None, VirtualPath::new("_main.typ"));
         let sha = FileId::new(None, VirtualPath::new("_sha"));
         let new_directories = Mutex::new(Vec::new());
@@ -154,13 +156,14 @@ impl World {
             config,
             main,
             sha,
-            store,
+            cards,
+            studies,
             cache_path,
             library,
             fonts,
             book,
             files,
-            cards,
+            selected_cards,
             new_directories,
         }
     }
@@ -295,7 +298,7 @@ impl World {
         if latest_sha == api.sha {
             trace!("SHAs match ! I will load all the files I can");
 
-            self.store.lock().mark_cards_for_garbage_collection();
+            self.cards.lock().mark_cards_for_garbage_collection();
 
             // We can use cached data
             for entry in WalkDir::new(self.cache_path.join("workdir"))
@@ -304,7 +307,7 @@ impl World {
                 .filter(|e| e.path().extension().and_then(|ext| ext.to_str()) == Some("typ"))
             {
                 let content = std::fs::read_to_string(entry.path())?;
-                if let Err(e) = self.store.lock().load(&content) {
+                if let Err(e) = self.cards.lock().load(&content) {
                     errors.push(LoadError {
                         error: e.to_string(),
                         path: entry.path().to_string_lossy().to_string(),
@@ -312,8 +315,8 @@ impl World {
                 };
             }
 
-            self.store.lock().sha = latest_sha;
-            self.store.lock().collect_garbage();
+            self.cards.lock().sha = latest_sha;
+            self.cards.lock().collect_garbage();
 
             return Ok(errors);
         }
@@ -339,14 +342,14 @@ impl World {
 
         trace!("Going to process all repository items");
 
-        self.store.lock().mark_cards_for_garbage_collection();
+        self.cards.lock().mark_cards_for_garbage_collection();
 
         for item in items {
             trace!("Item: {}", &item.path);
 
             let content = api.get_blob(&item.sha)?;
 
-            if let Err(e) = self.store.lock().load(&content) {
+            if let Err(e) = self.cards.lock().load(&content) {
                 errors.push(LoadError {
                     error: e.to_string(),
                     path: item.path.clone(),
@@ -361,8 +364,8 @@ impl World {
 
         trace!("Done, saving SHA");
 
-        self.store.lock().collect_garbage();
-        self.store.lock().sha = api.sha.clone();
+        self.cards.lock().collect_garbage();
+        self.cards.lock().sha = api.sha.clone();
         self.save_sha(api.sha)?;
 
         self.new_directories.lock().push(workdir);
@@ -439,9 +442,9 @@ impl TypstWorld for World {
     fn source(&self, id: FileId) -> FileResult<Source> {
         if id == self.main {
             match self
-                .store
+                .cards
                 .lock()
-                .build_source(self.cards.lock().iter().cloned(), *self.config.lock())
+                .build_source(self.selected_cards.lock().iter().cloned(), *self.config.lock())
             {
                 Ok(content) => Ok(Source::new(id, content)),
                 Err(err) => {
@@ -499,7 +502,7 @@ impl World {
 
     #[uniffi::method(name = "setSelectedCards")]
     fn _set_selected_cards(&self, cards: Vec<Card>) {
-        *self.cards.lock() = cards;
+        *self.selected_cards.lock() = cards;
     }
 
     #[uniffi::method(name = "loadFromGithub")]
@@ -543,21 +546,56 @@ impl World {
 
     #[uniffi::method(name = "cards")]
     fn _cards(&self) -> Vec<Card> {
-        self.store.lock()._cards()
+        self.cards.lock().cards()
+    }
+
+    #[uniffi::method(name = "roots")]
+    fn _roots(&self) -> Vec<Tag> {
+        self.cards.lock().roots()
     }
 
     #[uniffi::method(name = "fuzzyInit")]
     fn _fuzzy_init(&self, pattern: String) {
-        self.store.lock().fuzzy_init(&pattern);
+        self.cards.lock().fuzzy_init(&pattern);
     }
 
     #[uniffi::method(name = "fuzzyTick")]
     fn _fuzzy_tick(&self) -> FuzzyStatus {
-        self.store.lock().fuzzy_tick()
+        self.cards.lock().fuzzy_tick()
     }
 
     #[uniffi::method(name = "fuzzyResults")]
     fn _fuzzy_results(&self) -> Vec<Card> {
-        self.store.lock().fuzzy_results()
+        self.cards.lock().fuzzy_results()
+    }
+
+    #[uniffi::method(name = "loadStudy")]
+    fn _load_study(&self, id: u64, timestamp: u64, selection: Vec<Card>, state: StudyState) -> Study {
+        self.studies.lock().load_study(id, timestamp, selection, state)
+    }
+
+    #[uniffi::method(name = "newStudy")]
+    fn _new_study(&self, name: String, selection: Vec<Card>) -> Study {
+        self.studies.lock().new_study(name, selection)
+    }
+
+    #[uniffi::method(name = "getStudies")]
+    fn _get_studies(&self) -> Vec<Study> {
+        self.studies.lock().studies().collect_vec()
+    }
+
+    #[uniffi::method(name = "sutdyLastId")]
+    fn _study_last_id(&self) -> Option<u64> {
+        self.studies.lock().last_id()
+    }
+
+    #[uniffi::method(name = "sutdySetLastId")]
+    fn _study_set_last_id(&self, value: u64) {
+        self.studies.lock().set_last_id(value)
+    }
+
+    #[uniffi::method(name = "deleteStudy")]
+    fn _delete_study(&self, id: u64) -> Option<Study> {
+        self.studies.lock().delete_study(id)
     }
 }

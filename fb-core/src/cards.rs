@@ -87,6 +87,10 @@ impl Tag {
             parent.add_child(tag.clone());
         }
 
+        let root = tag.root(store);
+
+        store.roots.insert(root);
+
         tag
     }
 
@@ -95,6 +99,10 @@ impl Tag {
             .char_indices()
             .filter(|&(_, c)| c == '.')
             .map(|(i, _)| store.tag(&self.full_path[0..i]))
+    }
+
+    fn root(&self, store: &mut CardStore) -> Tag {
+        self.ancestors(store).next().unwrap_or_else(|| self.clone())
     }
 
     fn parent(&self, store: &mut CardStore) -> Option<Tag> {
@@ -146,7 +154,9 @@ impl Card {
 }
 
 /// Rating of how well a card was answered
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize, uniffi::Enum,
+)]
 pub enum Rating {
     Again,
     Hard,
@@ -180,6 +190,8 @@ pub struct CardStore {
     injector: Arc<Injector<Card>>,
     /// Garbage collection for cards (when reloading)
     garbage: HashSet<String>,
+    /// Set of root tags
+    roots: HashSet<Tag>,
     /// Sha of the commit this store was based off
     pub sha: String,
     /// Cards
@@ -198,6 +210,7 @@ impl Default for CardStore {
             tags_map: HashMap::new(),
             cards: HashMap::new(),
             garbage: HashSet::new(),
+            roots: HashSet::new(),
         }
     }
 }
@@ -417,6 +430,14 @@ impl CardStore {
         Ok(())
     }
 
+    pub fn cards(&self) -> Vec<Card> {
+        self.cards.values().cloned().collect_vec()
+    }
+
+    pub fn roots(&self) -> Vec<Tag> {
+        self.roots.iter().cloned().collect_vec()
+    }
+
     /// Remove all cards that were marked for garbage collection.
     pub fn collect_garbage(&mut self) {
         for id in self.garbage.drain() {
@@ -476,6 +497,10 @@ impl TagInner {
             .filter_map(|w| w.upgrade())
             .collect_vec()
     }
+    #[uniffi::method(name = "children")]
+    pub fn _children(&self) -> Vec<Tag> {
+        self.state.lock().children.iter().cloned().collect_vec()
+    }
 }
 
 #[uniffi::export]
@@ -491,13 +516,5 @@ impl CardInner {
     #[uniffi::method(name = "paths")]
     pub fn _locations(&self) -> Vec<Tag> {
         self.state.lock().locations.clone()
-    }
-}
-
-#[uniffi::export]
-impl CardStore {
-    #[uniffi::method(name = "cards")]
-    pub fn _cards(&self) -> Vec<Card> {
-        self.cards.values().cloned().collect_vec()
     }
 }

@@ -19,7 +19,7 @@ import dev.vndx.flashbang.R
 import dev.vndx.flashbang.Theme
 import dev.vndx.flashbang.data.dateTimeFormatter
 import dev.vndx.flashbang.ui.CardRepositoryDetails
-import dev.vndx.flashbang.ui.CardTreeViewModel
+import dev.vndx.flashbang.ui.CardsViewModel
 import dev.vndx.flashbang.ui.SettingsAction
 import dev.vndx.flashbang.ui.SettingsCategory
 import dev.vndx.flashbang.ui.SettingsSelect
@@ -176,13 +176,13 @@ open class SettingsScreen : Screen {
                 )
             }
             item {
-                val cardTreeViewModel: CardTreeViewModel =
+                val cardsViewModel: CardsViewModel =
                     viewModel(viewModelStoreOwner = LocalActivity.current as ViewModelStoreOwner)
 
                 SettingsAction(
                     title = stringResource(R.string.reload),
                     onClick = {
-                        cardTreeViewModel.load(
+                        cardsViewModel.load(
                             CardRepositoryDetails(
                                 preferences.repository,
                                 preferences.branch,

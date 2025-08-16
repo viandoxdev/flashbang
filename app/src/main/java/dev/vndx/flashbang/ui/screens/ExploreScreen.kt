@@ -13,7 +13,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SearchBar
 import androidx.compose.material3.SearchBarDefaults
@@ -30,8 +29,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusEvent
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
@@ -43,27 +40,26 @@ import androidx.lifecycle.ViewModelStoreOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import dev.vndx.flashbang.R
 import dev.vndx.flashbang.World
-import dev.vndx.flashbang.ui.CardTreeUiState
-import dev.vndx.flashbang.ui.CardTreeViewModel
+import dev.vndx.flashbang.ui.CardsUiState
+import dev.vndx.flashbang.ui.CardsViewModel
 import dev.vndx.flashbang.ui.ShimmerProvider
 import dev.vndx.flashbang.ui.Sizes
-import dev.vndx.flashbang.ui.TagInfo
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
-import uniffi.mobile.CardHandle
+import kotlinx.serialization.Transient
+import uniffi.mobile.Card
 import uniffi.mobile.FuzzyStatus
 import uniffi.mobile.Tag
-import kotlin.math.exp
 
 // Fake card names for skeleton / shimmer loading
 val FakeCards = listOf(
     "Mitochondria",
     "Sun tzu: The art of war",
-    "I need at  least two more of these don't I ?",
+    "I need at least two more of these don't I ?",
     "Lorem ipsum dolor sit amet",
     "I'm all out of ideas"
 )
@@ -73,7 +69,7 @@ fun pollFuzzyFlow(world: World) = flow {
     while (run) {
         val status = withContext(Dispatchers.IO) { world.fuzzyTick() }
         if (status != FuzzyStatus.STALE) {
-            emit(world.fuzzyResults().map { world.cards()[it.toInt()] })
+            emit(world.fuzzyResults())
 
             run = status != FuzzyStatus.FINISHED
         }
@@ -112,6 +108,7 @@ fun Modifier.clearFocusOnKeyboardDismiss(): Modifier = composed {
 @Serializable
 open class ExploreScreen() : Screen {
     // Should be val but https://youtrack.jetbrains.com/issue/KT-38958
+    @Transient
     var root: Tag? = null
     override fun tab(): Tab = Tab.Cards
     override fun showTabs(): Boolean = root == null
@@ -125,24 +122,23 @@ open class ExploreScreen() : Screen {
 
     @Composable
     open fun Flashcard(
-        handle: CardHandle,
-        name: String,
+        card: Card,
         scheduled: Boolean,
     ) {
         dev.vndx.flashbang.ui.Flashcard(
-            name = name,
+            name = card.name(),
             scheduled = scheduled,
         )
     }
 
     @Composable
     open fun Directory(
-        tag: TagInfo,
+        tag: Tag,
         onClick: () -> Unit
     ) {
         dev.vndx.flashbang.ui.Directory(
-            name = tag.name,
-            cards = tag.indirectCards.size,
+            name = tag.name(),
+            cards = tag.indirectCards().size,
             onClick = onClick
         )
     }
@@ -152,23 +148,23 @@ open class ExploreScreen() : Screen {
     override fun Compose(onNavigate: (Screen) -> Unit) {
 
         val keyboardController = LocalSoftwareKeyboardController.current
-        val cardTreeViewModel =
-            viewModel<CardTreeViewModel>(viewModelStoreOwner = LocalActivity.current as ViewModelStoreOwner)
-        val world = cardTreeViewModel.world
-        val state by cardTreeViewModel.uiState.collectAsState()
+        val cardsViewModel =
+            viewModel<CardsViewModel>(viewModelStoreOwner = LocalActivity.current as ViewModelStoreOwner)
+        val world = cardsViewModel.world
+        val state by cardsViewModel.uiState.collectAsState()
         var query by remember { mutableStateOf("") }
 
         val directories by remember(query) {
             derivedStateOf {
-                (root?.let { state.tags[it.toInt()].children }
-                    ?: state.rootTags).map { tag -> state.tags[tag.toInt()] }
+                (root?.children()
+                    ?: state.rootTags)
             }
         }
 
         val cards by remember(query) {
             derivedStateOf {
-                (root?.let { state.tags[it.toInt()].cards }
-                    ?: emptyList()).map { handle -> state.cards[handle.toInt()] }
+                (root?.cards()
+                    ?: emptyList())
             }
         }
 
@@ -223,7 +219,7 @@ open class ExploreScreen() : Screen {
                 onExpandedChange = {},
             ) { }
             when (state) {
-                is CardTreeUiState.Loading -> {
+                is CardsUiState.Loading -> {
                     ShimmerProvider() {
                         LazyColumn(
                             modifier = Modifier.Companion
@@ -251,20 +247,18 @@ open class ExploreScreen() : Screen {
                             items(directories) { dirTag ->
                                 Directory(
                                     tag = dirTag,
-                                    onClick = { onNavigate(enter(dirTag.id)) })
+                                    onClick = { onNavigate(enter(dirTag)) })
                             }
                             items(cards) { card ->
                                 Flashcard(
-                                    handle = card.handle(),
-                                    name = card.name(),
+                                    card = card,
                                     scheduled = false,
                                 )
                             }
                         } else {
                             items(searchResults) { card ->
                                 Flashcard(
-                                    handle = card.handle(),
-                                    name = card.name(),
+                                    card = card,
                                     scheduled = false,
                                 )
                             }

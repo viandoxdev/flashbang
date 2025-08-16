@@ -23,22 +23,16 @@ import androidx.compose.runtime.ProvidableCompositionLocal
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.lifecycleScope
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation3.runtime.entry
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
-import androidx.navigation3.runtime.rememberSavedStateNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
-import androidx.navigation3.ui.rememberSceneSetupNavEntryDecorator
 import dagger.hilt.android.AndroidEntryPoint
 import dev.vndx.flashbang.ui.CardRepositoryDetails
-import dev.vndx.flashbang.ui.CardTreeViewModel
+import dev.vndx.flashbang.ui.CardsViewModel
 import dev.vndx.flashbang.ui.FlashbangTheme
 import dev.vndx.flashbang.ui.PreferencesState
 import dev.vndx.flashbang.ui.SettingsViewModel
@@ -50,13 +44,11 @@ import dev.vndx.flashbang.ui.screens.SelectionScreen
 import dev.vndx.flashbang.ui.screens.SelectionViewModel
 import dev.vndx.flashbang.ui.screens.SettingsScreen
 import dev.vndx.flashbang.ui.screens.StudiesScreen
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.launch
 import uniffi.mobile.rustSetupLogger
-import javax.inject.Inject
 
 @OptIn(ExperimentalSharedTransitionApi::class)
 val localNavSharedTransitionScope: ProvidableCompositionLocal<SharedTransitionScope> =
@@ -72,7 +64,7 @@ val localNavSharedTransitionScope: ProvidableCompositionLocal<SharedTransitionSc
 class MainActivity() : ComponentActivity() {
 
     val settingsViewModel: SettingsViewModel by viewModels()
-    private val cardTreeViewModel: CardTreeViewModel by viewModels()
+    private val cardsViewModel: CardsViewModel by viewModels()
     private val selectionViewModel: SelectionViewModel by viewModels()
 
     @OptIn(ExperimentalSharedTransitionApi::class)
@@ -95,7 +87,7 @@ class MainActivity() : ComponentActivity() {
                     CardRepositoryDetails(prefs.repository, prefs.branch, prefs.githubToken)
                 }.collect {
                     Log.w(TAG, "Sent over to cardTree")
-                    cardTreeViewModel.load(it)
+                    cardsViewModel.load(it)
                 }
         }
 
