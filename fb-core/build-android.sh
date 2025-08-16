@@ -17,6 +17,7 @@ cargo ndk -o ../app/src/main/jniLibs \
     -t x86_64 \
     build --release
 # Generate bindgens
+mkdir -p ../app/src/main/java/dev/vndx/flashbang/rust
 cargo run --bin uniffi-bindgen generate \
     --library ./target/debug/libmobile.so \
     --language kotlin \
