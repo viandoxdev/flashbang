@@ -29,3 +29,4 @@ log = "0.4"
 android_logger = { version = "0.15", features = ["android-api-30"] }
 nucleo = "0.5"
 fsrs = "5.1"
+thiserror = "2.0"

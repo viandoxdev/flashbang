@@ -1623,6 +1623,7 @@ dependencies = [
  "slotmap",
  "smallvec",
  "tar",
+ "thiserror 2.0.12",
  "typst",
  "typst-kit",
  "typst-svg",
