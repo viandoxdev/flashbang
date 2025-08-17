@@ -584,12 +584,12 @@ impl World {
         self.studies.lock().studies().collect_vec()
     }
 
-    #[uniffi::method(name = "sutdyLastId")]
+    #[uniffi::method(name = "studyLastId")]
     fn _study_last_id(&self) -> Option<u64> {
         self.studies.lock().last_id()
     }
 
-    #[uniffi::method(name = "sutdySetLastId")]
+    #[uniffi::method(name = "studySetLastId")]
     fn _study_set_last_id(&self, value: u64) {
         self.studies.lock().set_last_id(value)
     }

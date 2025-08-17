@@ -4,9 +4,24 @@ import androidx.datastore.core.CorruptionException
 import androidx.datastore.core.Serializer
 import com.google.protobuf.InvalidProtocolBufferException
 import dev.vndx.flashbang.Studies
+import uniffi.mobile.Rating
+import dev.vndx.flashbang.Rating as ProtoRating
 import java.io.InputStream
 import java.io.OutputStream
 
+fun Rating.toProto() = when (this) {
+    Rating.AGAIN -> ProtoRating.RATING_AGAIN
+    Rating.HARD -> ProtoRating.RATING_HARD
+    Rating.GOOD -> ProtoRating.RATING_GOOD
+    Rating.EASY -> ProtoRating.RATING_EASY
+}
+
+fun ProtoRating.toFFI() = when (this) {
+    ProtoRating.RATING_HARD  -> Rating.HARD
+    ProtoRating.RATING_GOOD  -> Rating.GOOD
+    ProtoRating.RATING_EASY  -> Rating.EASY
+    else -> Rating.AGAIN
+}
 val DefaultParameters = listOf(
     0.212f,
     1.2931f,
