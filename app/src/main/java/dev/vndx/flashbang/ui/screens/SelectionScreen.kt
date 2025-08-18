@@ -20,12 +20,12 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelStoreOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dev.vndx.flashbang.domain.Card
+import dev.vndx.flashbang.domain.Tag
 import dev.vndx.flashbang.ui.Directory
 import dev.vndx.flashbang.ui.Flashcard
 import dev.vndx.flashbang.ui.Sizes
 import kotlinx.serialization.Serializable
-import uniffi.mobile.Card
-import uniffi.mobile.Tag
 import javax.inject.Inject
 
 @HiltViewModel
@@ -100,16 +100,16 @@ class SelectionScreen() : ExploreScreen() {
         val state by remember {
             derivedStateOf {
                 when {
-                    tag.indirectCards().all { selection.isSelected(it) } -> ToggleableState.On
-                    tag.indirectCards().none { selection.isSelected(it) } -> ToggleableState.Off
+                    tag.indirectCards.all { selection.isSelected(it) } -> ToggleableState.On
+                    tag.indirectCards.none { selection.isSelected(it) } -> ToggleableState.Off
                     else -> ToggleableState.Indeterminate
                 }
             }
         }
 
         Directory(
-            name = tag.name(),
-            cards = tag.indirectCards().size,
+            name = tag.name,
+            cards = tag.indirectCards.size,
             onClick = onClick
         ) {
             CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Companion.Unspecified) {
@@ -117,13 +117,13 @@ class SelectionScreen() : ExploreScreen() {
                     state = state,
                     onClick = {
                         when (state) {
-                            ToggleableState.Off -> tag.indirectCards().forEach {
+                            ToggleableState.Off -> tag.indirectCards.forEach {
                                 selection.selectCard(
                                     it
                                 )
                             }
 
-                            else -> tag.indirectCards().forEach { selection.deselectCard(it) }
+                            else -> tag.indirectCards.forEach { selection.deselectCard(it) }
                         }
                     },
                     modifier = Modifier

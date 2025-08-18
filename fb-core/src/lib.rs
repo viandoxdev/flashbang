@@ -1,23 +1,26 @@
-use std::{
-    fmt::Debug,
-    path::PathBuf,
-    sync::Arc,
-};
+use std::{path::PathBuf, sync::Arc};
 
 use android_logger::{Config, FilterBuilder};
+use itertools::Itertools;
 
 use crate::{
     cards::{CardSource, CardState, SourceConfig},
+    error::CoreError,
     fuzzy::{FuzzyCore, FuzzyItem, FuzzyState, FuzzyStatus},
+    scheduler::{
+        Progress, SchedulerCore, SchedulerItem, SchedulerMemoryState, SchedulerNextState,
+        SchedulerState,
+    },
     world::{CardPage, LoadResult, WorldCore, WorldState},
 };
 
 uniffi::setup_scaffolding!();
 
 mod cards;
-mod fsrs;
+mod error;
 mod fuzzy;
 mod github;
+mod scheduler;
 mod world;
 
 /// Main struct of this library, acts as a global context for the different features this
@@ -27,64 +30,27 @@ pub struct Core {
     pub card: CardState,
     pub world: WorldState,
     pub fuzzy: FuzzyState,
-}
-
-#[derive(Debug, thiserror::Error, uniffi::Error)]
-pub enum CoreError {
-    #[error("couldn't parse typst file for cards: {message}")]
-    Parsing { message: String },
-    #[error("IO error: {message}")]
-    IO { message: String },
-    #[error("Http (Reqwest) error: {message}")]
-    HTTP { message: String },
-    #[error("Typst error: {message}")]
-    Typst { message: String },
-}
-
-impl<'a> From<nom::Err<nom::error::Error<&'a str>>> for CoreError {
-    fn from(value: nom::Err<nom::error::Error<&'a str>>) -> Self {
-        Self::Parsing {
-            message: match value {
-                nom::Err::Incomplete(needed) => match needed {
-                    nom::Needed::Unknown => format!("Incomplete input"),
-                    nom::Needed::Size(size) => format!("Incomplete input, missing ({size}) bytes"),
-                },
-                nom::Err::Error(err) => format!("Error while parsing: {err} ({err:?})"),
-                nom::Err::Failure(fail) => format!("Failed to parse: {fail} ({fail:?})"),
-            },
-        }
-    }
-}
-
-impl From<std::io::Error> for CoreError {
-    fn from(value: std::io::Error) -> Self {
-        Self::IO {
-            message: format!("{value} ({value:?})"),
-        }
-    }
-}
-
-impl From<reqwest::Error> for CoreError {
-    fn from(value: reqwest::Error) -> Self {
-        Self::HTTP {
-            message: format!("{value} ({value:?})"),
-        }
-    }
+    pub scheduler: SchedulerState,
 }
 
 impl Core {
-    pub fn new(cache_path: PathBuf) -> Self {
-        Self {
+    pub fn new(cache_path: PathBuf) -> Result<Self, CoreError> {
+        Ok(Self {
             card: CardState::new(),
             world: WorldState::new(cache_path),
             fuzzy: FuzzyState::new(),
-        }
+            scheduler: SchedulerState::new()?,
+        })
     }
 }
 
 #[allow(non_snake_case)]
 #[uniffi::export]
 impl Core {
+    #[uniffi::constructor]
+    fn _new(cache_path: String) -> Result<Self, CoreError> {
+        Self::new(PathBuf::from(&cache_path))
+    }
     fn worldLoadFromGithub(
         &self,
         repo: String,
@@ -103,6 +69,12 @@ impl Core {
     fn worldCompile(&self) -> Result<Vec<Arc<CardPage>>, CoreError> {
         WorldCore::compile(self)
     }
+    fn worldNewCachedDirectories(&self) -> Vec<String> {
+        WorldCore::new_cached_directories(self)
+            .into_iter()
+            .map(|path| path.to_string_lossy().to_string())
+            .collect_vec()
+    }
     fn fuzzyInit(&self, pattern: String) {
         FuzzyCore::init(self, &pattern);
     }
@@ -117,6 +89,35 @@ impl Core {
     }
     fn fuzzyReset(&self) {
         FuzzyCore::reset(self);
+    }
+    fn schedulerSetParameters(&self, parameters: Vec<f32>) -> Result<(), CoreError> {
+        SchedulerCore::set_parameters(self, &parameters)
+    }
+    fn schedulerNextState(
+        &self,
+        state: SchedulerMemoryState,
+        days_elapsed: u32,
+    ) -> Result<SchedulerNextState, CoreError> {
+        Ok(SchedulerNextState::from(SchedulerCore::next_state(
+            self,
+            fsrs::MemoryState::from(state),
+            days_elapsed,
+        )?))
+    }
+    // We have to arc proress (even though it already contains an arc) for ffi
+    fn schedulerRecomputeParameters(
+        &self,
+        items: Vec<SchedulerItem>,
+        progress: Option<Arc<Progress>>,
+    ) -> Result<Vec<f32>, CoreError> {
+        SchedulerCore::compute_parameters(
+            self,
+            items.into_iter().map(From::from).collect_vec(),
+            progress.map(|v| <Progress as Clone>::clone(&*v)),
+        )
+    }
+    fn schedulerSetRetention(&self, value: f32) {
+        SchedulerCore::set_retention(self, value);
     }
 }
 

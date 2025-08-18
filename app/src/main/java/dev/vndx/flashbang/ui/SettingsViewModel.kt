@@ -7,8 +7,7 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.vndx.flashbang.Preferences
 import dev.vndx.flashbang.TAG
-import dev.vndx.flashbang.Theme
-import dev.vndx.flashbang.World
+import dev.vndx.flashbang.Core
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -18,7 +17,7 @@ import javax.inject.Inject
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val dataStore: DataStore<Preferences>,
-    private val world: World,
+    private val core: Core,
 ) : ViewModel() {
     val preferences = dataStore.data.map {
         Log.w(TAG, "Got dataStore read")

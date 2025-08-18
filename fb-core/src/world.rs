@@ -23,7 +23,7 @@ use typst_kit::fonts::{FontSearcher, FontSlot};
 use walkdir::WalkDir;
 
 use crate::{
-    cards::{CardInfo, CardSource, SourceConfig}, github::GithubAPI, Core, CoreError
+    cards::{CardInfo, CardSource, SourceConfig}, github::GithubAPI, Core, error::CoreError
 };
 
 /// The default Typst registry.
@@ -173,6 +173,7 @@ pub trait WorldCore {
         config: SourceConfig,
     ) -> Result<(), CoreError>;
     fn compile(&self) -> Result<Vec<Arc<CardPage>>, CoreError>;
+    fn new_cached_directories(&self) -> Vec<PathBuf>;
 }
 
 impl WorldCore for Core {
@@ -297,6 +298,9 @@ impl WorldCore for Core {
             .into_iter()
             .map(|p| Arc::new(CardPage(p)))
             .collect_vec())
+    }
+    fn new_cached_directories(&self) -> Vec<PathBuf> {
+        self.world.new_directories.lock().drain(..).collect_vec()
     }
 }
 

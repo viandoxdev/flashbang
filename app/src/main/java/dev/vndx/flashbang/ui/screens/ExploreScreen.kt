@@ -38,8 +38,10 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModelStoreOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
+import dev.vndx.flashbang.domain.Card
 import dev.vndx.flashbang.R
-import dev.vndx.flashbang.World
+import dev.vndx.flashbang.Core
+import dev.vndx.flashbang.domain.Tag
 import dev.vndx.flashbang.ui.CardsUiState
 import dev.vndx.flashbang.ui.CardsViewModel
 import dev.vndx.flashbang.ui.ShimmerProvider
@@ -51,9 +53,7 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
-import uniffi.mobile.Card
 import uniffi.mobile.FuzzyStatus
-import uniffi.mobile.Tag
 
 // Fake card names for skeleton / shimmer loading
 val FakeCards = listOf(
@@ -64,12 +64,12 @@ val FakeCards = listOf(
     "I'm all out of ideas"
 )
 
-fun pollFuzzyFlow(world: World) = flow {
+fun pollFuzzyFlow(core: Core) = flow {
     var run = true
     while (run) {
-        val status = withContext(Dispatchers.IO) { world.fuzzyTick() }
+        val status = withContext(Dispatchers.IO) { core.core.fuzzyTick() }
         if (status != FuzzyStatus.STALE) {
-            emit(world.fuzzyResults())
+            emit(core.core.fuzzyResults())
 
             run = status != FuzzyStatus.FINISHED
         }
@@ -137,8 +137,8 @@ open class ExploreScreen() : Screen {
         onClick: () -> Unit
     ) {
         dev.vndx.flashbang.ui.Directory(
-            name = tag.name(),
-            cards = tag.indirectCards().size,
+            name = tag.name,
+            cards = tag.indirectCards.size,
             onClick = onClick
         )
     }
@@ -150,27 +150,27 @@ open class ExploreScreen() : Screen {
         val keyboardController = LocalSoftwareKeyboardController.current
         val cardsViewModel =
             viewModel<CardsViewModel>(viewModelStoreOwner = LocalActivity.current as ViewModelStoreOwner)
-        val world = cardsViewModel.world
+        val core = cardsViewModel.core
         val state by cardsViewModel.uiState.collectAsState()
         var query by remember { mutableStateOf("") }
 
         val directories by remember(query) {
             derivedStateOf {
-                (root?.children()
+                (root?.children?.toList()
                     ?: state.rootTags)
             }
         }
 
         val cards by remember(query) {
             derivedStateOf {
-                (root?.cards()
+                (root?.cards?.toList()
                     ?: emptyList())
             }
         }
 
         val searchResults by remember(query) {
             if (query.isNotEmpty()) {
-                pollFuzzyFlow(world)
+                pollFuzzyFlow(core)
             } else {
                 emptyFlow()
             }
@@ -192,7 +192,7 @@ open class ExploreScreen() : Screen {
                         modifier = Modifier.clearFocusOnKeyboardDismiss(),
                         query = query,
                         onQueryChange = {
-                            world.fuzzyInit(query)
+                            core.core.fuzzyInit(query)
                             query = it
                         },
                         onSearch = {
@@ -258,7 +258,7 @@ open class ExploreScreen() : Screen {
                         } else {
                             items(searchResults) { card ->
                                 Flashcard(
-                                    card = card,
+                                    card = card as Card,
                                     scheduled = false,
                                 )
                             }

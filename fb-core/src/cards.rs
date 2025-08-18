@@ -9,7 +9,8 @@ use std::usize;
 
 use itertools::Itertools;
 
-use crate::{Core, CoreError};
+use crate::error::CoreError;
+use crate::Core;
 
 #[derive(uniffi::Object)]
 pub struct HeaderInner {
