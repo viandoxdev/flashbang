@@ -289,7 +289,7 @@ impl WorldCore for Core {
             .output
             .map_err(|errors| {
                 CoreError::Typst {
-                    message: format!("{errors:?}")
+                    details: format!("{errors:?}")
                 }
             })?;
 

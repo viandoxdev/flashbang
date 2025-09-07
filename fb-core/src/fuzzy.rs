@@ -9,6 +9,7 @@ use crate::Core;
 #[uniffi::export(with_foreign)]
 pub trait FuzzyItem: Send + Sync {
     fn key(&self) -> String;
+    fn data(&self) -> String;
 }
 
 type AnyFuzzy = Arc<dyn FuzzyItem>;

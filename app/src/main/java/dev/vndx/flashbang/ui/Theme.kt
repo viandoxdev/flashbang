@@ -201,9 +201,9 @@ val typography = Typography(
     bodyMedium = TextStyle(fontFamily = lexendRegular, fontSize = 14.sp, lineHeight = 20.sp),
     bodySmall = TextStyle(fontFamily = lexendRegular, fontSize = 12.sp, lineHeight = 16.sp),
 
-    labelLarge = TextStyle(fontFamily = lexendMedium, fontSize = 14.sp, lineHeight = 20.sp),
-    labelMedium = TextStyle(fontFamily = lexendMedium, fontSize = 12.sp, lineHeight = 16.sp),
-    labelSmall = TextStyle(fontFamily = lexendMedium, fontSize = 11.sp, lineHeight = 16.sp),
+    labelLarge = TextStyle(fontFamily = lexendMedium, fontSize = 18.sp, lineHeight = 20.sp),
+    labelMedium = TextStyle(fontFamily = lexendMedium, fontSize = 16.sp, lineHeight = 16.sp),
+    labelSmall = TextStyle(fontFamily = lexendMedium, fontSize = 14.sp, lineHeight = 16.sp),
 )
 
 data object Sizes {

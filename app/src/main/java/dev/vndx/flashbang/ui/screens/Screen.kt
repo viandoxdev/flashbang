@@ -74,6 +74,7 @@ interface Screen : NavKey {
     @Composable
     fun ComposeScaffold(
         onNavigate: (Screen) -> Unit,
+        onBack: () -> Unit,
         backStack: NavBackStack,
         useDarkTheme: Boolean,
         onChangeTheme: (Boolean) -> Unit
@@ -173,13 +174,13 @@ interface Screen : NavKey {
                     .padding(padding)
                     .background(MaterialTheme.colorScheme.background)
             ) {
-                Compose(onNavigate = onNavigate)
+                Compose(onNavigate = onNavigate, onBack = onBack)
             }
         }
     }
 
     @Composable
-    fun Compose(onNavigate: (Screen) -> Unit): Unit {
+    fun Compose(onNavigate: (Screen) -> Unit, onBack: () -> Unit): Unit {
         // If this isn't implemented, shit breaks, I don't know why or how but whatever.
         Log.e(TAG, "How did we get here ?")
         Box(

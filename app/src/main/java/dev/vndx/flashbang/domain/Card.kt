@@ -14,8 +14,8 @@ data class Card (
     val question: String,
     val answer: String,
     val header: Header?,
-    var scheduledFor: LocalDate,
-) : CardSource, FuzzyItem {
+    var scheduledFor: LocalDate? = null,
+) : CardSource, FuzzyItem, Item {
     override fun header(): Header? = header
 
     override fun id(): String = id
@@ -29,4 +29,15 @@ data class Card (
     override fun locations(): List<String> = locations.map { it.fullPath }
 
     override fun key(): String = name
+
+    override fun data(): String = id
+
+    override val itemName: String
+        get() = name
+    override val childItems: List<Item>
+        get() = emptyList()
+    override val leafItems: List<Item>
+        get() = listOf(this)
+    override val parentItems: List<Item>
+        get() = locations
 }

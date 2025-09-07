@@ -50,6 +50,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
@@ -133,19 +134,16 @@ open class ExploreScreen() : Screen {
 
     @Composable
     open fun Directory(
-        tag: Tag,
-        onClick: () -> Unit
+        tag: Tag, onClick: () -> Unit
     ) {
         dev.vndx.flashbang.ui.Directory(
-            name = tag.name,
-            cards = tag.indirectCards.size,
-            onClick = onClick
+            name = tag.name, cards = tag.indirectCards.size, onClick = onClick
         )
     }
 
     @OptIn(ExperimentalMaterial3Api::class)
     @Composable
-    override fun Compose(onNavigate: (Screen) -> Unit) {
+    override fun Compose(onNavigate: (Screen) -> Unit, onBack: () -> Unit) {
 
         val keyboardController = LocalSoftwareKeyboardController.current
         val cardsViewModel =
@@ -156,21 +154,23 @@ open class ExploreScreen() : Screen {
 
         val directories by remember(query) {
             derivedStateOf {
-                (root?.children?.toList()
-                    ?: state.rootTags)
+                (root?.children?.toList() ?: state.rootTags)
             }
         }
 
         val cards by remember(query) {
             derivedStateOf {
-                (root?.cards?.toList()
-                    ?: emptyList())
+                (root?.cards?.toList() ?: emptyList())
             }
         }
 
         val searchResults by remember(query) {
             if (query.isNotEmpty()) {
-                pollFuzzyFlow(core)
+                pollFuzzyFlow(core).map { list ->
+                    list.mapNotNull {
+                        state.cards[it.data()]
+                    }
+                }
             } else {
                 emptyFlow()
             }
@@ -246,8 +246,7 @@ open class ExploreScreen() : Screen {
                         if (query.isEmpty()) {
                             items(directories) { dirTag ->
                                 Directory(
-                                    tag = dirTag,
-                                    onClick = { onNavigate(enter(dirTag)) })
+                                    tag = dirTag, onClick = { onNavigate(enter(dirTag)) })
                             }
                             items(cards) { card ->
                                 Flashcard(
@@ -258,7 +257,7 @@ open class ExploreScreen() : Screen {
                         } else {
                             items(searchResults) { card ->
                                 Flashcard(
-                                    card = card as Card,
+                                    card = card,
                                     scheduled = false,
                                 )
                             }

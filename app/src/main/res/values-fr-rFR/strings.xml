@@ -32,6 +32,7 @@
     <string name="corrupt">corrompu</string>
     <string name="cancel">Annuler</string>
     <string name="ok">OK</string>
+    <string name="confirm">Confirmer</string>
     <string name="date_format_slash_d_m_yy">j/m/aa</string>
     <string name="date_format_slash_dd_mm_yy">jj/mm/aa</string>
     <string name="date_format_slash_mm_dd_yy">mm/jj/aa</string>
@@ -44,4 +45,11 @@
     <string name="branch">Branche</string>
     <string name="token">Jeton</string>
     <string name="reload">Recharger</string>
+    <string name="study_name_label">Nom</string>
+    <string name="study_selection_label">Séléction</string>
+    <string name="study_default_name" formatted="true">Étude du %1$s</string>
+    <string name="study_create">Nouvelle Étude</string>
+    <string name="no_selected_cards">Vous n\'avez pas encore séléctionné de cartes pour cette étude.</string>
+    <string name="study_deletion_title">Confirmation de suppression</string>
+    <string name="study_deletion_content">Cette action n\'est pas reversible.</string>
 </resources>

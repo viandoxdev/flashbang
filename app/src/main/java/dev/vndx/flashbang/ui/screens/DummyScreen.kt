@@ -16,7 +16,7 @@ class DummyScreen(val dummyTab: Tab) : Screen {
     override fun showTabs(): Boolean = true
 
     @Composable
-    override fun Compose(onNavigate: (Screen) -> Unit) {
+    override fun Compose(onNavigate: (Screen) -> Unit, onBack: () -> Unit) {
         Box(
             modifier = Modifier.fillMaxSize()
         ) {

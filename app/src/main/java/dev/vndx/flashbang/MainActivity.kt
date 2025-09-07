@@ -36,6 +36,7 @@ import dev.vndx.flashbang.ui.CardsViewModel
 import dev.vndx.flashbang.ui.FlashbangTheme
 import dev.vndx.flashbang.ui.PreferencesState
 import dev.vndx.flashbang.ui.SettingsViewModel
+import dev.vndx.flashbang.ui.screens.CreateStudyScreen
 import dev.vndx.flashbang.ui.screens.DummyScreen
 import dev.vndx.flashbang.ui.screens.EditStudyScreen
 import dev.vndx.flashbang.ui.screens.ExploreScreen
@@ -65,7 +66,6 @@ class MainActivity() : ComponentActivity() {
 
     val settingsViewModel: SettingsViewModel by viewModels()
     private val cardsViewModel: CardsViewModel by viewModels()
-    private val selectionViewModel: SelectionViewModel by viewModels()
 
     @OptIn(ExperimentalSharedTransitionApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -107,6 +107,7 @@ class MainActivity() : ComponentActivity() {
             val composeScreen: @Composable (Screen) -> Unit = { screen ->
                 screen.ComposeScaffold(
                     onNavigate = { backStack.add(it) },
+                    onBack = { backStack.removeLastOrNull() },
                     useDarkTheme = useDarkTheme,
                     backStack = backStack,
                     onChangeTheme = {
@@ -177,6 +178,9 @@ class MainActivity() : ComponentActivity() {
                                             composeScreen(it)
                                         }
                                         entry<DummyScreen> {
+                                            composeScreen(it)
+                                        }
+                                        entry<CreateStudyScreen> {
                                             composeScreen(it)
                                         }
                                         entry<EditStudyScreen> {

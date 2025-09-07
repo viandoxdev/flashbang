@@ -26,14 +26,19 @@ import dev.vndx.flashbang.ui.Directory
 import dev.vndx.flashbang.ui.Flashcard
 import dev.vndx.flashbang.ui.Sizes
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
 import javax.inject.Inject
 
 @HiltViewModel
 class SelectionViewModel @Inject constructor() : ViewModel() {
-    private val selection = mutableStateSetOf<Card>()
+    val selection = mutableStateSetOf<Card>()
 
     fun isSelected(card: Card): Boolean =
         selection.contains(card)
+
+    fun isEmpty(): Boolean = selection.isEmpty()
+
+    fun clear() = selection.clear()
 
     fun toggleCard(card: Card) {
         if (!selection.add(card)) {
@@ -51,20 +56,19 @@ class SelectionViewModel @Inject constructor() : ViewModel() {
 }
 
 @Serializable
-class SelectionScreen() : ExploreScreen() {
+class SelectionScreen(@Transient val _selection: SelectionViewModel? = null) : ExploreScreen() {
     override fun tab(): Tab = Tab.Study
 
     override fun showTabs(): Boolean = false
 
-    constructor(tag: Tag?) : this() {
+    constructor(tag: Tag?, _selection: SelectionViewModel? = null) : this(_selection) {
         root = tag
     }
 
-    override fun enter(tag: Tag): Screen = SelectionScreen(tag)
-
     @get:Composable
-    private val selection: SelectionViewModel
-        get() = viewModel<SelectionViewModel>(viewModelStoreOwner = LocalActivity.current as ViewModelStoreOwner)
+    val selection: SelectionViewModel get() = _selection ?: viewModel()
+
+    override fun enter(tag: Tag): Screen = SelectionScreen(tag, _selection)
 
     @Composable
     override fun Flashcard(

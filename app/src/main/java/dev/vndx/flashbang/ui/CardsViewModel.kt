@@ -39,7 +39,7 @@ data class CardsData(
             val rootTags = mutableSetOf<Tag>()
             fun tagOf(fullPath: String): Tag = tagsMap.getOrPut(fullPath) {
                 val ancestors =
-                    fullPath.withIndex().filter { (_, ch) -> ch != '.' }.map { (index, _) ->
+                    fullPath.withIndex().filter { (_, ch) -> ch == '.' }.map { (index, _) ->
                         tagOf(fullPath.slice(0..(index - 1)))
                     }
                 val tag = Tag(fullPath, ancestors)

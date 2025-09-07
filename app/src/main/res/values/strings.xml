@@ -31,6 +31,7 @@
     <string name="corrupt">corrupt</string>
     <string name="cancel">Cancel</string>
     <string name="ok">OK</string>
+    <string name="confirm">Confirm</string>
     <string name="date_format_slash_d_m_yy">d/M/yy</string>
     <string name="date_format_slash_dd_mm_yy">dd/MM/yy</string>
     <string name="date_format_slash_mm_dd_yy">MM/dd/yy</string>
@@ -43,4 +44,11 @@
     <string name="branch">Branch</string>
     <string name="token">Token</string>
     <string name="reload">Reload</string>
+    <string name="study_name_label">Name</string>
+    <string name="study_selection_label">Selection</string>
+    <string name="study_default_name" formatted="true">%1$s Study</string>
+    <string name="study_create">Create study</string>
+    <string name="no_selected_cards">You haven\'t selected any cards for this study yet.</string>
+    <string name="study_deletion_title">Confirm study deletion</string>
+    <string name="study_deletion_content">This action is unrecoverable.</string>
 </resources>

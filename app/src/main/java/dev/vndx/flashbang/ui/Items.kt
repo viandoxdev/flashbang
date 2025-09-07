@@ -36,10 +36,12 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.layout.ModifierLocalBeyondBoundsLayout
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
@@ -51,14 +53,17 @@ import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
 import dev.vndx.flashbang.R
 import dev.vndx.flashbang.data.dateTimeFormatter
+import kotlinx.coroutines.launch
 import java.time.LocalDate
 
 // Taken from https://proandroiddev.com/seamless-shimmer-integration-with-existing-compose-code-b95cc3bbcd17
 
 @Composable
-private fun IconDisplay(painter: Painter, contentDescription: String? = null) {
+private fun IconDisplay(
+    painter: Painter, modifier: Modifier = Modifier, contentDescription: String? = null
+) {
     Icon(
-        modifier = Modifier.Companion
+        modifier = modifier
             .background(
                 MaterialTheme.colorScheme.primaryContainer,
                 shape = RoundedCornerShape(Sizes.cornerRadiusMedium)
@@ -81,8 +86,7 @@ fun Directory(
     val context = LocalContext.current
     Surface(
         color = MaterialTheme.colorScheme.background,
-        modifier = modifier
-            .clickable(onClick = onClick)
+        modifier = modifier.clickable(onClick = onClick)
     ) {
         Row(
             verticalAlignment = Alignment.Companion.Top,
@@ -95,10 +99,8 @@ fun Directory(
                 Column(
                     modifier = Modifier.Companion
                         .padding(Sizes.spacingLarge, Sizes.spacingTiny)
-                        .fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(
-                        Sizes.spacingTiny,
-                        alignment = Alignment.Companion.Top
+                        .fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(
+                        Sizes.spacingTiny, alignment = Alignment.Companion.Top
                     )
                 ) {
                     Text(name, style = MaterialTheme.typography.headlineSmall)
@@ -127,8 +129,7 @@ fun Flashcard(
     val context = LocalContext.current
     Surface(
         color = MaterialTheme.colorScheme.background,
-        modifier = modifier
-            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
+        modifier = modifier.combinedClickable(onClick = onClick, onLongClick = onLongClick)
     ) {
         Row(
             verticalAlignment = Alignment.Companion.Top,
@@ -136,18 +137,11 @@ fun Flashcard(
                 .fillMaxWidth()
                 .padding(Sizes.spacingMedium)
         ) {
-            Icon(
-                modifier = Modifier.Companion
+            IconDisplay(
+                modifier = Modifier
                     .shimmerable()
-                    .background(
-                        MaterialTheme.colorScheme.primaryContainer,
-                        shape = androidx.compose.foundation.shape.RoundedCornerShape(Sizes.cornerRadiusMedium)
-                    )
-                    .padding(Sizes.spacingMedium)
                     .offset(0.dp, 2.dp),
                 painter = painterResource(R.drawable.outline_edit_note_32),
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onBackground,
             )
             Box(
                 modifier = Modifier.Companion
@@ -157,10 +151,8 @@ fun Flashcard(
                 Column(
                     modifier = Modifier.Companion
                         .padding(Sizes.spacingLarge, Sizes.spacingTiny)
-                        .fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(
-                        Sizes.spacingTiny,
-                        alignment = Alignment.Companion.CenterVertically
+                        .fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(
+                        Sizes.spacingTiny, alignment = Alignment.Companion.CenterVertically
                     )
                 ) {
                     Text(
@@ -189,24 +181,33 @@ fun Flashcard(
 fun Study(
     name: String,
     cards: Int,
-    handle: Int,
+    id: Long,
     description: String,
     date: LocalDate,
     progress: Float,
     onEdit: () -> Unit = {},
     onResume: () -> Unit = {},
-    onSwipe: () -> Unit = {},
+    onDelete: () -> Unit = {},
 ) {
-    val dismissState = rememberSwipeToDismissBoxState(
-        positionalThreshold = { totalDistance -> totalDistance * 0.6f },
-        confirmValueChange = {
-            if (it == SwipeToDismissBoxValue.StartToEnd) {
-                onSwipe()
-            }
+    val interactive = !LocalShimmerState.current.isLoading
+    var dialogOpen by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    val dismissState =
+        rememberSwipeToDismissBoxState(
+            positionalThreshold = { totalDistance -> totalDistance * 0.6f },
+            confirmValueChange = {
+                if (it == SwipeToDismissBoxValue.StartToEnd) {
+                    dialogOpen = true
+                }
 
-            it == SwipeToDismissBoxValue.StartToEnd
+                it != SwipeToDismissBoxValue.EndToStart
+            })
+    val onDismissDialog = {
+        dialogOpen = false
+        scope.launch {
+            dismissState.dismiss(SwipeToDismissBoxValue.Settled)
         }
-    )
+    }
     val preferencesState by viewModel<SettingsViewModel>().preferences.collectAsState()
     val preferences = preferencesState.preferences
     val relative = true
@@ -214,11 +215,11 @@ fun Study(
     SwipeToDismissBox(
         state = dismissState,
         enableDismissFromEndToStart = false,
+        enableDismissFromStartToEnd = interactive,
         backgroundContent = {}
     ) {
         OutlinedCard(
-            modifier = Modifier
-                .fillMaxWidth()
+            modifier = Modifier.fillMaxWidth()
         ) {
             Column(
                 modifier = Modifier
@@ -231,18 +232,29 @@ fun Study(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(Sizes.spacingMedium)
                 ) {
-                    IconDisplay(painterResource(R.drawable.outline_note_stack_32))
+                    IconDisplay(
+                        modifier = Modifier.shimmerable(),
+                        painter = painterResource(R.drawable.outline_note_stack_32)
+                    )
                     TitleSubtitleStack(
-                        name,
-                        pluralStringResource(R.plurals.card_count, cards, cards)
+                        modifier = Modifier.shimmerable(),
+                        title = name,
+                        subtitle = pluralStringResource(R.plurals.card_count, cards, cards)
                     )
                     CircularProgressIndicator(
                         progress = { progress },
-                        modifier = Modifier.padding(0.dp, 0.dp, Sizes.spacingMedium)
+                        modifier = Modifier
+                            .shimmerable()
+                            .padding(0.dp, 0.dp, Sizes.spacingMedium)
                     )
                 }
 
-                Text(description)
+                Text(
+                    modifier = Modifier.shimmerable(),
+                    text = description,
+                    overflow = TextOverflow.Ellipsis,
+                    maxLines = 5,
+                )
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -251,19 +263,72 @@ fun Study(
                 ) {
                     Box(modifier = Modifier.weight(1f)) {
                         Text(
-                            formatRelativeDate(
-                                date,
-                                relative,
-                                preferences.dateFormat.dateTimeFormatter()
-                            ),
-                            style = MaterialTheme.typography.bodySmall
+                            modifier = Modifier.shimmerable(), text = formatRelativeDate(
+                                date, relative, preferences.dateFormat.dateTimeFormatter()
+                            ), style = MaterialTheme.typography.bodySmall
                         )
                     }
-                    Button(onClick = onResume) {
+                    Button(
+                        enabled = interactive,
+                        modifier = Modifier.shimmerable(), onClick = onResume
+                    ) {
                         Text(stringResource(R.string.resume))
                     }
-                    Button(onClick = onEdit) {
+                    Button(
+                        enabled = interactive,
+                        modifier = Modifier.shimmerable(), onClick = onEdit
+                    ) {
                         Text(stringResource(R.string.edit))
+                    }
+                }
+            }
+        }
+    }
+
+    if (dialogOpen && interactive) {
+        Dialog(
+            onDismissRequest = { onDismissDialog() }) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(Sizes.spacingLarge),
+                shape = RoundedCornerShape(Sizes.cornerRadiusHuge)
+            ) {
+                Column(
+                    modifier = Modifier.padding(Sizes.spacingMedium),
+                ) {
+                    Text(
+                        text = stringResource(R.string.study_deletion_title),
+                        style = MaterialTheme.typography.headlineSmall
+                    )
+                    Text(
+                        modifier = Modifier.padding(0.dp, Sizes.spacingMedium, 0.dp),
+                        text = stringResource(R.string.study_deletion_content),
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        TextButton(
+                            onClick = { onDismissDialog() }) {
+                            Text(
+                                text = stringResource(R.string.cancel),
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        }
+                        TextButton(
+                            onClick = {
+                                dialogOpen = false
+                                onDelete()
+                            }) {
+                            Text(
+                                text = stringResource(R.string.confirm),
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        }
                     }
                 }
             }
@@ -273,20 +338,21 @@ fun Study(
 
 @Composable
 private fun RowScope.TitleSubtitleStack(
-    title: String,
-    subtitle: String? = null
+    title: String, modifier: Modifier = Modifier, subtitle: String? = null
 ) {
     Box(modifier = Modifier.weight(1f)) {
         Column(
             verticalArrangement = Arrangement.spacedBy(Sizes.spacingMedium)
         ) {
             Text(
-                title,
+                modifier = modifier,
+                text = title,
                 style = MaterialTheme.typography.titleMedium,
             )
             subtitle?.let {
                 Text(
-                    it,
+                    modifier = modifier,
+                    text = it,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     style = MaterialTheme.typography.bodyLarge,
@@ -316,7 +382,7 @@ fun SettingsCategory(
             horizontalArrangement = Arrangement.spacedBy(Sizes.spacingMedium)
         ) {
             IconDisplay(painter)
-            TitleSubtitleStack(title, subtitle)
+            TitleSubtitleStack(title = title, subtitle = subtitle)
         }
     }
 }
@@ -338,10 +404,9 @@ fun SettingsSwitch(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(Sizes.spacingMedium)
         ) {
-            TitleSubtitleStack(title, subtitle)
+            TitleSubtitleStack(title = title, subtitle = subtitle)
             Switch(
-                checked = checked,
-                onCheckedChange = onCheckedChange
+                checked = checked, onCheckedChange = onCheckedChange
             )
         }
     }
@@ -422,8 +487,7 @@ fun <T> SettingsSelect(
                             Text(name, style = MaterialTheme.typography.headlineSmall)
                         }
                         RadioButton(
-                            selected = (selected == name),
-                            onClick = null
+                            selected = (selected == name), onClick = null
                         )
                     }
                 }
@@ -445,8 +509,7 @@ fun <T> SettingsSelect(
                     }
                 }
             }
-        }
-    ) {
+        }) {
         Row(
             modifier = Modifier
                 .padding(Sizes.spacingMedium)
@@ -454,17 +517,14 @@ fun <T> SettingsSelect(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(Sizes.spacingMedium)
         ) {
-            TitleSubtitleStack(title, subtitle)
+            TitleSubtitleStack(title = title, subtitle = subtitle)
         }
     }
 }
 
 @Composable
 fun SettingsTextField(
-    title: String,
-    value: String,
-    subtitle: String? = null,
-    onValueChange: (String) -> Unit = {}
+    title: String, value: String, subtitle: String? = null, onValueChange: (String) -> Unit = {}
 ) {
     var dialogOpen by remember { mutableStateOf(false) }
     var text by remember(value) { mutableStateOf(value) }
@@ -494,11 +554,9 @@ fun SettingsTextField(
                     horizontalArrangement = Arrangement.spacedBy(Sizes.spacingMedium)
                 ) {
                     TextField(
-                        value = text,
-                        onValueChange = {
+                        value = text, onValueChange = {
                             text = it
-                        }
-                    )
+                        })
                 }
 
                 Row(
@@ -518,8 +576,7 @@ fun SettingsTextField(
                         onClick = {
                             onValueChange(text)
                             dialogOpen = false
-                        },
-                        enabled = (text != value)
+                        }, enabled = (text != value)
                     ) {
                         Text(
                             stringResource(android.R.string.ok),
@@ -528,8 +585,7 @@ fun SettingsTextField(
                     }
                 }
             }
-        }
-    ) {
+        }) {
         Row(
             modifier = Modifier
                 .padding(Sizes.spacingMedium)
@@ -537,7 +593,7 @@ fun SettingsTextField(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(Sizes.spacingMedium)
         ) {
-            TitleSubtitleStack(title, subtitle)
+            TitleSubtitleStack(title = title, subtitle = subtitle)
         }
     }
 }
@@ -554,7 +610,7 @@ fun SettingsAction(title: String, subtitle: String? = null, onClick: () -> Unit 
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(Sizes.spacingMedium)
         ) {
-            TitleSubtitleStack(title, subtitle)
+            TitleSubtitleStack(title = title, subtitle = subtitle)
         }
     }
 }
