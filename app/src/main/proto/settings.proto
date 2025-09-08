@@ -28,6 +28,8 @@ message Preferences {
   // Github token used for API requests
   string github_token = 3;
   Theme theme = 4;
-  bool useDynamicColors = 5;
-  DateFormat dateFormat = 6;
+  bool use_dynamic_colors = 5;
+  DateFormat date_format = 6;
+
+  int32 card_font_size = 7;
 }

@@ -23,11 +23,13 @@ import dev.vndx.flashbang.ui.CardsViewModel
 import dev.vndx.flashbang.ui.SettingsAction
 import dev.vndx.flashbang.ui.SettingsCategory
 import dev.vndx.flashbang.ui.SettingsSelect
+import dev.vndx.flashbang.ui.SettingsSlider
 import dev.vndx.flashbang.ui.SettingsSwitch
 import dev.vndx.flashbang.ui.SettingsTextField
 import dev.vndx.flashbang.ui.SettingsViewModel
 import kotlinx.serialization.Serializable
 import java.time.LocalDateTime
+import kotlin.math.roundToInt
 
 fun Internal.EnumLite.isReal(): Boolean {
     return try {
@@ -139,6 +141,18 @@ open class SettingsScreen : Screen {
                         .map { Pair(it.name(), it) },
                     subtitle = preferences.dateFormat.name(),
                     onSelect = { (_, format) -> vm.update { setDateFormat(format) } }
+                )
+            }
+            item {
+                SettingsSlider(
+                    title = stringResource(R.string.card_font_size),
+                    subtitle = "${preferences.cardFontSize}pt",
+                    value = preferences.cardFontSize.toFloat(),
+                    valueRange = 8f..32f,
+                    steps = 11,
+                    onValueChange = { fontSize ->
+                        vm.update { setCardFontSize(fontSize.roundToInt()) }
+                    }
                 )
             }
         }

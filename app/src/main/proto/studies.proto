@@ -33,7 +33,7 @@ message Study {
 
 message Studies {
   uint64 ids = 1;
-  repeated float FSRSParameters = 2;
+  repeated float fsrs_parameters = 2;
 
   map<string, CardMemoryState> memory = 3;
 

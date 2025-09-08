@@ -52,4 +52,6 @@
     <string name="no_selected_cards">Vous n\'avez pas encore séléctionné de cartes pour cette étude.</string>
     <string name="study_deletion_title">Confirmation de suppression</string>
     <string name="study_deletion_content">Cette action n\'est pas reversible.</string>
+    <string name="flip">Retourner</string>
+    <string name="card_font_size">Taille de la police des cartes</string>
 </resources>

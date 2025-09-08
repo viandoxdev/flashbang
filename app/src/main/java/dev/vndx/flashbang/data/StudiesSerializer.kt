@@ -34,7 +34,7 @@ val DefaultParameters = listOf(
 
 object StudiesSerializer : Serializer<Studies> {
     override val defaultValue: Studies
-        get() = Studies.newBuilder().setIds(0).addAllFSRSParameters(DefaultParameters).build()
+        get() = Studies.newBuilder().setIds(0).addAllFsrsParameters(DefaultParameters).build()
 
     override suspend fun readFrom(input: InputStream): Studies {
         try {

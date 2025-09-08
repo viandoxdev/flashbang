@@ -51,4 +51,6 @@
     <string name="no_selected_cards">You haven\'t selected any cards for this study yet.</string>
     <string name="study_deletion_title">Confirm study deletion</string>
     <string name="study_deletion_content">This action is unrecoverable.</string>
+    <string name="flip">Flip</string>
+    <string name="card_font_size">Card font size</string>
 </resources>

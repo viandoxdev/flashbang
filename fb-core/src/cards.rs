@@ -117,13 +117,14 @@ impl CardCore for Core {
         cards: impl IntoIterator<Item = C>,
         config: SourceConfig,
     ) -> Result<String, CoreError> {
+        const CARDS_INTERNAL: &'static str = include_str!("./cards_internal.typ");
+
         use std::io::Write;
 
         let mut w = Vec::new();
         let mut last_header = None;
 
-        writeln!(&mut w, "#import \"cards_internal.typ\": *")?;
-        writeln!(&mut w, "#show: setup")?;
+        writeln!(&mut w, "{CARDS_INTERNAL}")?;
         writeln!(&mut w, "#set page(width: {}pt)", config.page_width)?;
         writeln!(&mut w, "#set text(size: {}pt)", config.text_size)?;
         writeln!(&mut w, "#[")?;
@@ -151,6 +152,8 @@ impl CardCore for Core {
             writeln!(&mut w, "#answer")?;
             write!(&mut w, "{}", card.answer())?;
         }
+
+        writeln!(&mut w, "]")?;
 
         Ok(String::from_utf8(w).map_err(|_| {
             std::io::Error::new(std::io::ErrorKind::Other, "Couldn't parse bytes to string")

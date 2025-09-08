@@ -125,10 +125,14 @@ open class ExploreScreen() : Screen {
     open fun Flashcard(
         card: Card,
         scheduled: Boolean,
+        onNavigate: (Screen) -> Unit
     ) {
         dev.vndx.flashbang.ui.Flashcard(
-            name = card.name(),
+            name = card.name,
             scheduled = scheduled,
+            onClick = {
+                onNavigate(CardPreviewScreen(card.id))
+            }
         )
     }
 
@@ -252,6 +256,7 @@ open class ExploreScreen() : Screen {
                                 Flashcard(
                                     card = card,
                                     scheduled = false,
+                                    onNavigate = onNavigate
                                 )
                             }
                         } else {
@@ -259,6 +264,7 @@ open class ExploreScreen() : Screen {
                                 Flashcard(
                                     card = card,
                                     scheduled = false,
+                                    onNavigate = onNavigate
                                 )
                             }
                         }

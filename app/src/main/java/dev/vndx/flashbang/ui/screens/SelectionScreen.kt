@@ -74,6 +74,7 @@ class SelectionScreen(@Transient val _selection: SelectionViewModel? = null) : E
     override fun Flashcard(
         card: Card,
         scheduled: Boolean,
+        onNavigate: (Screen) -> Unit,
     ) {
         // selection is an @Composable getter, so needs to be called in this scope
         val selection = selection
@@ -82,7 +83,8 @@ class SelectionScreen(@Transient val _selection: SelectionViewModel? = null) : E
         Flashcard(
             name = card.name(),
             scheduled = false,
-            onClick = { selection.toggleCard(card) }
+            onClick = { selection.toggleCard(card) },
+            onLongClick = { onNavigate(CardPreviewScreen(card.id)) }
         ) {
 
             CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Companion.Unspecified) {

@@ -277,6 +277,8 @@ impl WorldCore for Core {
 
         let content = self.build_source(cards, config)?;
 
+        log::warn!("full typst source: '{content}'");
+
         self.world.files.lock().insert(
             self.world.main,
             FileSlot::with_source(self.world.main, Source::new(self.world.main, content)),
@@ -466,108 +468,3 @@ impl TypstWorld for WorldState {
         None
     }
 }
-
-// #[uniffi::export]
-// impl World {
-//     #[uniffi::method(name = "loadFromGithub")]
-//     fn _load_from_github(
-//         &self,
-//         repo: String,
-//         branch: String,
-//         token: Option<String>,
-//     ) -> Result<Vec<LoadError>, AnyError> {
-//         self.load_from_github(repo, branch, token)
-//             .map_err(AnyError::from_error)
-//     }
-//
-//     #[uniffi::method(name = "compile")]
-//     fn _compile(&self) -> Result<Vec<Arc<CardPage>>, AnyError> {
-//         let output = typst::compile::<PagedDocument>(&self)
-//             .output
-//             .map_err(|errors| {
-//                 let str = format!("{errors:?}");
-//                 AnyError {
-//                     display: str.to_string(),
-//                     debug: str.to_string(),
-//                 }
-//             })?;
-//
-//         Ok(output
-//             .pages
-//             .into_iter()
-//             .map(|p| Arc::new(CardPage(p)))
-//             .collect_vec())
-//     }
-//
-//     #[uniffi::method(name = "newCachedDirectories")]
-//     fn _new_cached_directories(&self) -> Vec<String> {
-//         self.new_directories
-//             .lock()
-//             .drain(..)
-//             .map(|p| p.to_string_lossy().to_string())
-//             .collect_vec()
-//     }
-//
-//     #[uniffi::method(name = "cards")]
-//     fn _cards(&self) -> Vec<Card> {
-//         self.cards.lock().cards()
-//     }
-//
-//     #[uniffi::method(name = "roots")]
-//     fn _roots(&self) -> Vec<Tag> {
-//         self.cards.lock().roots()
-//     }
-//
-//     #[uniffi::method(name = "fuzzyInit")]
-//     fn _fuzzy_init(&self, pattern: String) {
-//         self.cards.lock().fuzzy_init(&pattern);
-//     }
-//
-//     #[uniffi::method(name = "fuzzyTick")]
-//     fn _fuzzy_tick(&self) -> FuzzyStatus {
-//         self.cards.lock().fuzzy_tick()
-//     }
-//
-//     #[uniffi::method(name = "fuzzyResults")]
-//     fn _fuzzy_results(&self) -> Vec<Card> {
-//         self.cards.lock().fuzzy_results()
-//     }
-//
-//     #[uniffi::method(name = "loadStudy")]
-//     fn _load_study(
-//         &self,
-//         id: u64,
-//         timestamp: u64,
-//         selection: Vec<Card>,
-//         state: StudyState,
-//     ) -> Study {
-//         self.studies
-//             .lock()
-//             .load_study(id, timestamp, selection, state)
-//     }
-//
-//     #[uniffi::method(name = "newStudy")]
-//     fn _new_study(&self, name: String, selection: Vec<Card>) -> Study {
-//         self.studies.lock().new_study(name, selection)
-//     }
-//
-//     #[uniffi::method(name = "getStudies")]
-//     fn _get_studies(&self) -> Vec<Study> {
-//         self.studies.lock().studies().collect_vec()
-//     }
-//
-//     #[uniffi::method(name = "studyLastId")]
-//     fn _study_last_id(&self) -> Option<u64> {
-//         self.studies.lock().last_id()
-//     }
-//
-//     #[uniffi::method(name = "studySetLastId")]
-//     fn _study_set_last_id(&self, value: u64) {
-//         self.studies.lock().set_last_id(value)
-//     }
-//
-//     #[uniffi::method(name = "deleteStudy")]
-//     fn _delete_study(&self, id: u64) -> Option<Study> {
-//         self.studies.lock().delete_study(id)
-//     }
-// }

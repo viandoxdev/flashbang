@@ -23,6 +23,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
@@ -216,8 +217,7 @@ fun Study(
         state = dismissState,
         enableDismissFromEndToStart = false,
         enableDismissFromStartToEnd = interactive,
-        backgroundContent = {}
-    ) {
+        backgroundContent = {}) {
         OutlinedCard(
             modifier = Modifier.fillMaxWidth()
         ) {
@@ -269,14 +269,12 @@ fun Study(
                         )
                     }
                     Button(
-                        enabled = interactive,
-                        modifier = Modifier.shimmerable(), onClick = onResume
+                        enabled = interactive, modifier = Modifier.shimmerable(), onClick = onResume
                     ) {
                         Text(stringResource(R.string.resume))
                     }
                     Button(
-                        enabled = interactive,
-                        modifier = Modifier.shimmerable(), onClick = onEdit
+                        enabled = interactive, modifier = Modifier.shimmerable(), onClick = onEdit
                     ) {
                         Text(stringResource(R.string.edit))
                     }
@@ -384,6 +382,37 @@ fun SettingsCategory(
             IconDisplay(painter)
             TitleSubtitleStack(title = title, subtitle = subtitle)
         }
+    }
+}
+
+@Composable
+fun SettingsSlider(
+    title: String,
+    value: Float,
+    steps: Int = 0,
+    valueRange: ClosedFloatingPointRange<Float> = 0f..1f,
+    subtitle: String? = null,
+    onValueChange: (Float) -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .padding(Sizes.spacingMedium)
+            .fillMaxWidth(),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(Sizes.spacingMedium)
+        ) {
+            TitleSubtitleStack(title = title, subtitle = subtitle)
+        }
+
+        Slider(
+            value = value,
+            onValueChange = onValueChange,
+            steps = steps,
+            valueRange = valueRange,
+        )
     }
 }
 

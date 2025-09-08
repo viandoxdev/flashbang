@@ -67,6 +67,8 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.navigation3)
     implementation(libs.google.dagger.hilt.android)
     implementation(libs.valentinilk.shimmer.compose.shimmer)
+    implementation(libs.coil.compose)
+    implementation(libs.coil.svg)
     ksp(libs.google.dagger.hilt.android.compiler)
     implementation(composeBom)
     implementation(libs.androidx.compose.material3)
