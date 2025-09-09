@@ -91,6 +91,7 @@ pub struct SourceConfig {
     pub page_width: u32,
     // Text size in pt
     pub text_size: u32,
+    pub text_color: u32,
 }
 
 pub struct CardState {}
@@ -126,7 +127,7 @@ impl CardCore for Core {
 
         writeln!(&mut w, "{CARDS_INTERNAL}")?;
         writeln!(&mut w, "#set page(width: {}pt)", config.page_width)?;
-        writeln!(&mut w, "#set text(size: {}pt)", config.text_size)?;
+        writeln!(&mut w, "#set text(size: {}pt, fill: rgb(\"#{:06X}\"))", config.text_size, config.text_color)?;
         writeln!(&mut w, "#[")?;
 
         for card in cards {

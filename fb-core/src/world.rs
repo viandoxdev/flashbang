@@ -11,15 +11,9 @@ use itertools::Itertools;
 use parking_lot::Mutex;
 use reqwest::{StatusCode, blocking::Client};
 use typst::{
-    Library, World as TypstWorld,
-    diag::{FileError, FileResult},
-    foundations::Bytes,
-    layout::{Page, PagedDocument},
-    syntax::{FileId, Source, VirtualPath, package::PackageSpec},
-    text::{Font, FontBook},
-    utils::LazyHash,
+    diag::{FileError, FileResult}, foundations::Bytes, layout::{Page, PagedDocument}, syntax::{package::PackageSpec, FileId, Source, VirtualPath}, text::{Font, FontBook}, utils::LazyHash, Library, World as TypstWorld
 };
-use typst_kit::fonts::{FontSearcher, FontSlot};
+use typst_kit::fonts::{FontSearcher, FontSlot as TypstFontSlot};
 use walkdir::WalkDir;
 
 use crate::{
@@ -31,6 +25,26 @@ pub const DEFAULT_REGISTRY: &str = "https://packages.typst.org";
 
 /// The public namespace in the default Typst registry.
 pub const DEFAULT_NAMESPACE: &str = "preview";
+
+enum FontSlot {
+    Typst(TypstFontSlot),
+    Extra(Font)
+}
+
+impl FontSlot {
+    fn get(&self) -> Option<Font> {
+        match self {
+            Self::Typst(slot) => slot.get(),
+            Self::Extra(font) => Some(font.clone())
+        }
+    }
+}
+
+impl From<TypstFontSlot> for FontSlot {
+    fn from(value: TypstFontSlot) -> Self {
+        Self::Typst(value)
+    }
+}
 
 #[derive(Debug, Clone)]
 struct FileSlot {
@@ -145,13 +159,29 @@ impl WorldState {
             .include_system_fonts(false)
             .include_embedded_fonts(true)
             .search();
+        let mut font_book = fonts.book;
+        let mut fonts = fonts.fonts.into_iter().map(FontSlot::from).collect_vec();
+
+        for data in [
+            include_bytes!("../assets/lexend_regular.ttf").as_slice(),
+            include_bytes!("../assets/lexend_medium.ttf").as_slice(),
+            include_bytes!("../assets/lexend_semibold.ttf").as_slice(),
+            include_bytes!("../assets/lexend_bold.ttf").as_slice(),
+            include_bytes!("../assets/notosansmath_regular.ttf").as_slice()
+        ] {
+            let buffer = Bytes::new(data);
+            for font in Font::iter(buffer) {
+                font_book.push(font.info().clone());
+                fonts.push(FontSlot::Extra(font));
+            }
+        }
 
         Self {
-            book: LazyHash::new(fonts.book),
+            book: LazyHash::new(font_book),
             cache_path,
             client: Client::new(),
             files: Mutex::new(HashMap::new()),
-            fonts: fonts.fonts,
+            fonts,
             library: LazyHash::new(Library::default()),
             main: FileId::new(None, VirtualPath::new("_main.typ")),
             new_directories: Mutex::new(Vec::new()),

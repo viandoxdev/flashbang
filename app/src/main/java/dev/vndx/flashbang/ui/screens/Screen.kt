@@ -72,12 +72,15 @@ interface Screen : NavKey {
     }
 
     @Composable
+    fun ComposeTopBarAction(onNavigate: (Screen) -> Unit, onBack: (Int?) -> Unit) {
+
+    }
+
+    @Composable
     fun ComposeScaffold(
         onNavigate: (Screen) -> Unit,
-        onBack: () -> Unit,
+        onBack: (Int?) -> Unit,
         backStack: NavBackStack,
-        useDarkTheme: Boolean,
-        onChangeTheme: (Boolean) -> Unit
     ) {
         Scaffold(
             containerColor = MaterialTheme.colorScheme.background,
@@ -88,19 +91,7 @@ interface Screen : NavKey {
                         ?: "Flashcards",
                     onBack = { backStack.removeLastOrNull() },
                     actions = {
-                        IconButton(onClick = { onChangeTheme(!useDarkTheme) }) {
-                            Icon(
-                                painter = painterResource(
-                                    if (useDarkTheme) {
-                                        R.drawable.outline_clear_day_32
-                                    } else {
-                                        R.drawable.outline_mode_night_32
-                                    }
-                                ),
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onBackground
-                            )
-                        }
+                        ComposeTopBarAction(onNavigate, onBack)
                     })
             },
             bottomBar = {
@@ -180,7 +171,7 @@ interface Screen : NavKey {
     }
 
     @Composable
-    fun Compose(onNavigate: (Screen) -> Unit, onBack: () -> Unit): Unit {
+    fun Compose(onNavigate: (Screen) -> Unit, onBack: (Int?) -> Unit): Unit {
         // If this isn't implemented, shit breaks, I don't know why or how but whatever.
         Log.e(TAG, "How did we get here ?")
         Box(

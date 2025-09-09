@@ -1,7 +1,6 @@
 package dev.vndx.flashbang.ui.screens
 
 import android.util.Log
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -14,6 +13,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -22,42 +23,48 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.viewmodel.compose.viewModel
-import coil3.ImageLoader
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import coil3.svg.SvgDecoder
 import dev.vndx.flashbang.R
 import dev.vndx.flashbang.TAG
-import dev.vndx.flashbang.domain.Card
 import dev.vndx.flashbang.ui.CardsUiState
 import dev.vndx.flashbang.ui.CardsViewModel
 import dev.vndx.flashbang.ui.SettingsViewModel
 import dev.vndx.flashbang.ui.Sizes
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.flowOn
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.Transient
-import uniffi.mobile.CardPage
 import uniffi.mobile.SourceConfig
-import java.io.ByteArrayInputStream
 import java.nio.ByteBuffer
 import kotlin.math.roundToInt
-import kotlin.text.ifEmpty
 
 @Serializable
 class CardPreviewScreen(val cardId: String) : Screen {
     override fun tab() = Tab.Cards
+
+    var answer by mutableStateOf(false)
+
+    @Composable
+    override fun ComposeTopBarAction(onNavigate: (Screen) -> Unit, onBack: (Int?) -> Unit) {
+        IconButton(onClick = {
+            answer = !answer
+        }) {
+            Icon(
+                painter = painterResource(R.drawable.outline_flip_32),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onBackground
+            )
+        }
+    }
 
     @Composable
     fun Loading() {
@@ -71,7 +78,7 @@ class CardPreviewScreen(val cardId: String) : Screen {
     }
 
     @Composable
-    override fun Compose(onNavigate: (Screen) -> Unit, onBack: () -> Unit) {
+    override fun Compose(onNavigate: (Screen) -> Unit, onBack: (Int?) -> Unit) {
         val cardsViewModel = viewModel<CardsViewModel>()
         val cardsState by cardsViewModel.uiState.collectAsState()
 
@@ -82,7 +89,7 @@ class CardPreviewScreen(val cardId: String) : Screen {
 
         if (!cardsState.cards.containsKey(cardId)) {
             Log.e(TAG, "Can't preview card with id '${cardId}', no such card")
-            onBack()
+            onBack(1)
             return
         }
 
@@ -91,7 +98,6 @@ class CardPreviewScreen(val cardId: String) : Screen {
                 cardsState.cards[cardId]!!
             }
         }
-        var answer by remember { mutableStateOf(false) }
         val configuration = LocalConfiguration.current
         val density = configuration.densityDpi / 160f
         val preferences by viewModel<SettingsViewModel>().preferences.collectAsState()
@@ -108,13 +114,16 @@ class CardPreviewScreen(val cardId: String) : Screen {
                     .fillMaxWidth()
                     .verticalScroll(rememberScrollState())
             ) {
+                val color = MaterialTheme.colorScheme.onBackground
+                Log.e(TAG, "Color: $color, ${color.value.toHexString()} ${(color.value and 0xFFFFFFuL).toUInt().toHexString()}")
                 val pagesFlow = remember(maxWidth, density, preferences) {
                     flow {
                         Log.w(TAG, "Compiling for $maxWidth")
                         val pages = cardsViewModel.core.compileCards(
                             listOf(card), SourceConfig(
                                 (maxWidth.value * density).roundToInt().toUInt() * 0u + 200u,
-                                preferences.preferences.cardFontSize.toUInt()
+                                preferences.preferences.cardFontSize.toUInt(),
+                                ((color.value shr 32) and 0xFFFFFFuL).toUInt()
                             )
                         )
                         emit(pages)
@@ -124,8 +133,6 @@ class CardPreviewScreen(val cardId: String) : Screen {
                 val context = LocalContext.current
 
                 val svgString = pages?.getOrNull(if(answer) 2 else 1)?.svg() ?: "<svg></svg>"
-
-                Log.w(TAG, pages?.map { it.svg() }.toString())
 
                 val inputStream = ByteBuffer.wrap(
                     svgString.toByteArray()
@@ -139,19 +146,6 @@ class CardPreviewScreen(val cardId: String) : Screen {
                         SvgDecoder.Factory()
                     ).build(),
                     contentDescription = null,
-                )
-            }
-
-            Button(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(Sizes.cornerRadiusLarge),
-                onClick = {
-                    answer = !answer
-                },
-            ) {
-                Text(
-                    modifier = Modifier.padding(Sizes.spacingSmall),
-                    text = stringResource(R.string.flip) + " $answer"
                 )
             }
         }

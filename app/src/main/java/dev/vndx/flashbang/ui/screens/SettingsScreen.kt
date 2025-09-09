@@ -98,7 +98,7 @@ open class SettingsScreen : Screen {
     }
 
     @Composable
-    override fun Compose(onNavigate: (Screen) -> Unit, onBack: () -> Unit) {
+    override fun Compose(onNavigate: (Screen) -> Unit, onBack: (Int?) -> Unit) {
         val vm: SettingsViewModel = viewModel()
         val preferencesState by vm.preferences.collectAsState()
         val preferences = preferencesState.preferences

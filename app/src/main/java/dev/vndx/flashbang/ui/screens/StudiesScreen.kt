@@ -48,7 +48,7 @@ class StudiesScreen() : Screen {
     override fun isHomeScreen(): Boolean = true
 
     @Composable
-    override fun Compose(onNavigate: (Screen) -> Unit, onBack: () -> Unit) {
+    override fun Compose(onNavigate: (Screen) -> Unit, onBack: (Int?) -> Unit) {
         val cardsState by viewModel<CardsViewModel>().uiState.collectAsState()
         val viewModel: StudiesViewModel = viewModel()
         val state by viewModel.studiesState.collectAsState()

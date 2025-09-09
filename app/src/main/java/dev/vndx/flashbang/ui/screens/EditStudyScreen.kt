@@ -21,7 +21,7 @@ class EditStudyScreen(val id: Long) : Screen {
 
     @OptIn(ExperimentalSharedTransitionApi::class)
     @Composable
-    override fun Compose(onNavigate: (Screen) -> Unit, onBack: () -> Unit) {
+    override fun Compose(onNavigate: (Screen) -> Unit, onBack: (Int?) -> Unit) {
         val viewModel: StudiesViewModel = viewModel()
         val state by viewModel.studiesState.collectAsState()
         val study = state.studies.getValue(id)

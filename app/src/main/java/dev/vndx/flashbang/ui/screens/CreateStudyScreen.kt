@@ -47,7 +47,7 @@ class CreateStudyScreen : Screen {
     override fun tab(): Tab = Tab.Study
 
     @Composable
-    override fun Compose(onNavigate: (Screen) -> Unit, onBack: () -> Unit) {
+    override fun Compose(onNavigate: (Screen) -> Unit, onBack: (Int?) -> Unit) {
         val preferencesState by viewModel<SettingsViewModel>().preferences.collectAsState()
         val preferences = preferencesState.preferences
         val studiesViewModel = viewModel<StudiesViewModel>()
@@ -160,7 +160,7 @@ class CreateStudyScreen : Screen {
 
                     studiesViewModel.createStudy(selection, studyName)
 
-                    onBack()
+                    onBack(1)
                 },
             ) {
                 Text(

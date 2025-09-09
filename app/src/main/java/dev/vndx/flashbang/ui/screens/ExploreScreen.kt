@@ -13,6 +13,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SearchBar
 import androidx.compose.material3.SearchBarDefaults
@@ -145,9 +146,22 @@ open class ExploreScreen() : Screen {
         )
     }
 
+    @Composable
+    override fun ComposeTopBarAction(onNavigate: (Screen) -> Unit, onBack: (Int?) -> Unit) {
+        IconButton(onClick = {
+            onBack(root?.ancestors?.size?.let { it + 1 })
+        }) {
+            Icon(
+                painter = painterResource(R.drawable.outline_home_32),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onBackground
+            )
+        }
+    }
+
     @OptIn(ExperimentalMaterial3Api::class)
     @Composable
-    override fun Compose(onNavigate: (Screen) -> Unit, onBack: () -> Unit) {
+    override fun Compose(onNavigate: (Screen) -> Unit, onBack: (Int?) -> Unit) {
 
         val keyboardController = LocalSoftwareKeyboardController.current
         val cardsViewModel =

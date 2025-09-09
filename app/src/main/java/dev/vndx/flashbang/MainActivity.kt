@@ -43,7 +43,6 @@ import dev.vndx.flashbang.ui.screens.EditStudyScreen
 import dev.vndx.flashbang.ui.screens.ExploreScreen
 import dev.vndx.flashbang.ui.screens.Screen
 import dev.vndx.flashbang.ui.screens.SelectionScreen
-import dev.vndx.flashbang.ui.screens.SelectionViewModel
 import dev.vndx.flashbang.ui.screens.SettingsScreen
 import dev.vndx.flashbang.ui.screens.StudiesScreen
 import kotlinx.coroutines.flow.filterIsInstance
@@ -108,16 +107,8 @@ class MainActivity() : ComponentActivity() {
             val composeScreen: @Composable (Screen) -> Unit = { screen ->
                 screen.ComposeScaffold(
                     onNavigate = { backStack.add(it) },
-                    onBack = { backStack.removeLastOrNull() },
-                    useDarkTheme = useDarkTheme,
+                    onBack = { backStack.removeRange(backStack.size - (it ?: 1), backStack.size) },
                     backStack = backStack,
-                    onChangeTheme = {
-                        settingsViewModel.update {
-                            setTheme(
-                                if (useDarkTheme) Theme.THEME_LIGHT else Theme.THEME_DARK
-                            )
-                        }
-                    }
                 )
             }
             val transitionDuration = 200
