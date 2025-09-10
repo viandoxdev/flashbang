@@ -215,6 +215,7 @@ data object Sizes {
     val spacingSmall = 10.dp
     val spacingMedium = 15.dp
     val spacingLarge = 20.dp
+    val spacingHuge = 30.dp
     val borderWidth = 2.dp
 }
 

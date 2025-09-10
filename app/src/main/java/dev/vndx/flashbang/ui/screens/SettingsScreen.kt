@@ -148,8 +148,8 @@ open class SettingsScreen : Screen {
                     title = stringResource(R.string.card_font_size),
                     subtitle = "${preferences.cardFontSize}pt",
                     value = preferences.cardFontSize.toFloat(),
-                    valueRange = 8f..32f,
-                    steps = 11,
+                    valueRange = 8f..40f,
+                    steps = 15,
                     onValueChange = { fontSize ->
                         vm.update { setCardFontSize(fontSize.roundToInt()) }
                     }

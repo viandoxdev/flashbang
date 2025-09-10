@@ -1,38 +1,53 @@
 package dev.vndx.flashbang.ui.screens
 
 import android.util.Log
+import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.AnchoredDraggableState
+import androidx.compose.foundation.gestures.DraggableAnchors
+import androidx.compose.foundation.gestures.FlingBehavior
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.anchoredDraggable
+import androidx.compose.foundation.gestures.animateTo
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredWidth
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil3.compose.AsyncImage
+import coil3.compose.rememberAsyncImagePainter
 import coil3.request.ImageRequest
 import coil3.svg.SvgDecoder
 import dev.vndx.flashbang.R
@@ -42,7 +57,9 @@ import dev.vndx.flashbang.ui.CardsViewModel
 import dev.vndx.flashbang.ui.SettingsViewModel
 import dev.vndx.flashbang.ui.Sizes
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
 import uniffi.mobile.SourceConfig
 import java.nio.ByteBuffer
 import kotlin.math.roundToInt
@@ -51,12 +68,22 @@ import kotlin.math.roundToInt
 class CardPreviewScreen(val cardId: String) : Screen {
     override fun tab() = Tab.Cards
 
-    var answer by mutableStateOf(false)
+    data class DragAnchors(val page: Int)
+
+    @Transient
+    var draggableState: AnchoredDraggableState<Int>? = null
+    var pagesCount: Int = 0
 
     @Composable
     override fun ComposeTopBarAction(onNavigate: (Screen) -> Unit, onBack: (Int?) -> Unit) {
+        val scope = rememberCoroutineScope()
         IconButton(onClick = {
-            answer = !answer
+            if (pagesCount == 0) {
+                return@IconButton
+            }
+            scope.launch {
+                draggableState?.animateTo(((draggableState?.currentValue ?: -1) + 1) % pagesCount)
+            }
         }) {
             Icon(
                 painter = painterResource(R.drawable.outline_flip_32),
@@ -99,54 +126,81 @@ class CardPreviewScreen(val cardId: String) : Screen {
             }
         }
         val configuration = LocalConfiguration.current
-        val density = configuration.densityDpi / 160f
+        val density = LocalDensity.current
         val preferences by viewModel<SettingsViewModel>().preferences.collectAsState()
 
-        Column(
+        BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(Sizes.spacingMedium),
-            verticalArrangement = Arrangement.spacedBy(Sizes.spacingSmall)
         ) {
-            BoxWithConstraints(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState())
-            ) {
-                val color = MaterialTheme.colorScheme.onBackground
-                Log.e(TAG, "Color: $color, ${color.value.toHexString()} ${(color.value and 0xFFFFFFuL).toUInt().toHexString()}")
-                val pagesFlow = remember(maxWidth, density, preferences) {
-                    flow {
-                        Log.w(TAG, "Compiling for $maxWidth")
-                        val pages = cardsViewModel.core.compileCards(
-                            listOf(card), SourceConfig(
-                                (maxWidth.value * density).roundToInt().toUInt() * 0u + 200u,
-                                preferences.preferences.cardFontSize.toUInt(),
-                                ((color.value shr 32) and 0xFFFFFFuL).toUInt()
-                            )
+            val color = MaterialTheme.colorScheme.onBackground
+            Log.e(
+                TAG, "Color: $color, ${color.value.toHexString()} ${
+                    (color.value and 0xFFFFFFuL).toUInt().toHexString()
+                }"
+            )
+            val pageWidthPixels = with(density) { maxWidth.toPx() }
+            val context = LocalContext.current
+            val pagesFlow = remember(maxWidth, density, preferences) {
+                flow {
+                    Log.w(TAG, "Compiling for $maxWidth")
+                    val pages = cardsViewModel.core.compileCards(
+                        listOf(card), SourceConfig(
+                            (pageWidthPixels * 3 / 4).toUInt(),
+                            preferences.preferences.cardFontSize.toUInt(),
+                            ((color.value shr 32) and 0xFFFFFFuL).toUInt()
                         )
-                        emit(pages)
+                    ).filterIndexed { index, _ -> index > 0 }.map {
+                        ImageRequest.Builder(context).data(ByteBuffer.wrap(it.svg().toByteArray()))
+                            .decoderFactory(
+                                SvgDecoder.Factory()
+                            ).build()
                     }
+                    emit(pages)
                 }
-                val pages by pagesFlow.collectAsState(null)
-                val context = LocalContext.current
+            }
+            val pages by pagesFlow.collectAsState(emptyList())
 
-                val svgString = pages?.getOrNull(if(answer) 2 else 1)?.svg() ?: "<svg></svg>"
-
-                val inputStream = ByteBuffer.wrap(
-                    svgString.toByteArray()
+            draggableState = remember {
+                AnchoredDraggableState(
+                    initialValue = 0, anchors = DraggableAnchors {},
                 )
+            }
+            val draggableState = draggableState!!
+            pagesCount = pages.size
 
-                AsyncImage(
-                    modifier = Modifier
-                        .fillMaxWidth(),
-                    contentScale = ContentScale.FillWidth,
-                    model = ImageRequest.Builder(context).data(inputStream).decoderFactory(
-                        SvgDecoder.Factory()
-                    ).build(),
-                    contentDescription = null,
-                )
+            draggableState.updateAnchors(DraggableAnchors {
+                for (i in pages.indices) {
+                    i at -pageWidthPixels * i
+                }
+            })
+
+            Row(modifier = Modifier
+                .fillMaxHeight()
+                .requiredWidth(maxWidth * pagesCount)
+                .offset {
+                    IntOffset(
+                        pageWidthPixels.roundToInt() * pagesCount / 4 + draggableState.offset.let { if (it.isNaN()) 0 else it.toInt() },
+                        0
+                    )
+                }
+                .anchoredDraggable(
+                    orientation = Orientation.Horizontal, state = draggableState,
+                ), verticalAlignment = Alignment.CenterVertically
+
+            ) {
+                for (page in pages) {
+                    AsyncImage(
+                        modifier = Modifier
+                            .requiredWidth(this@BoxWithConstraints.maxWidth)
+                            .verticalScroll(rememberScrollState())
+                            .padding(bottom = Sizes.spacingHuge * 2),
+                        contentScale = ContentScale.FillWidth,
+                        model = page,
+                        contentDescription = null,
+                    )
+                }
             }
         }
     }
