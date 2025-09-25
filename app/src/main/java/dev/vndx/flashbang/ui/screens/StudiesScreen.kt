@@ -98,6 +98,9 @@ class StudiesScreen() : Screen {
                         onEdit = { onNavigate(EditStudyScreen(study.id)) },
                         onDelete = {
                             viewModel.deleteStudy(study)
+                        },
+                        onResume = {
+                            onNavigate(ReviewScreen(study))
                         }
                     )
                 }

@@ -87,8 +87,7 @@ interface Screen : NavKey {
             contentWindowInsets = WindowInsets.safeContent,
             topBar = {
                 TopBar(
-                    this.javaClass.name.split(".").lastOrNull()
-                        ?: "Flashcards",
+                    "Flashcards",
                     onBack = { backStack.removeLastOrNull() },
                     actions = {
                         ComposeTopBarAction(onNavigate, onBack)

@@ -1,5 +1,8 @@
 package dev.vndx.flashbang.domain
 
+import kotlinx.serialization.Serializable
+
+@Serializable
 class Tag(
     val fullPath: String,
     val ancestors: List<Tag>,

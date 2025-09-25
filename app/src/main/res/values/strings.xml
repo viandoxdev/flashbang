@@ -53,4 +53,8 @@
     <string name="study_deletion_content">This action is unrecoverable.</string>
     <string name="flip">Flip</string>
     <string name="card_font_size">Card font size</string>
+    <string name="rating_easy">Easy</string>
+    <string name="rating_good">Good</string>
+    <string name="rating_hard">Hard</string>
+    <string name="rating_again">Again</string>
 </resources>

@@ -1,13 +1,16 @@
 package dev.vndx.flashbang.ui
 
+import android.util.Log
 import androidx.datastore.core.DataStore
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dev.vndx.flashbang.CardMemoryState
 import dev.vndx.flashbang.CardReview
 import dev.vndx.flashbang.Studies
 import dev.vndx.flashbang.Core
 import dev.vndx.flashbang.Rating
+import dev.vndx.flashbang.TAG
 import dev.vndx.flashbang.domain.Card
 import dev.vndx.flashbang.domain.Study
 import kotlinx.coroutines.flow.SharingStarted
@@ -35,6 +38,7 @@ class StudiesViewModel @Inject constructor(
     private fun edit(transform: Studies.Builder.() -> Unit) {
         viewModelScope.launch {
             dataStore.updateData { studies -> studies.toBuilder().apply(transform).build() }
+            Log.w(TAG, "Finished writing studies")
         }
     }
 
@@ -45,18 +49,20 @@ class StudiesViewModel @Inject constructor(
         }
     }
 
-    fun createStudy(selection: List<String>, name: String) {
+    fun createStudy(selection: List<String>, name: String): Study {
         val id = when (studiesState.value) {
             is StudiesState.Success -> studiesState.value.proto.ids
             else -> throw IllegalStateException("Can't create new study when StudyState hasn't loaded successfully")
         }
-        
+
         val study = Study(id, LocalDateTime.now(), selection, name, mutableMapOf(), false)
 
         edit {
             putStudies(id, study.toProto())
             setIds(id + 1)
         }
+
+        return study
     }
 
     fun deleteStudy(study: Study) {
@@ -78,38 +84,34 @@ class StudiesViewModel @Inject constructor(
     }
 
     fun updateStudy(study: Study, rating: Rating, card: Card) {
+        study.reviews.put(card.id, rating)
+
         edit {
             // Update study
             val protoStudy = getStudiesOrThrow(study.id)
-            protoStudy.reviewsMap.put(card.id, rating)
+            protoStudy.toBuilder().putReviews(card.id, rating).build()
             putStudies(study.id, protoStudy)
 
-            // Update memory state
+            Log.w(TAG, "Updated study proto")
 
             // Fetch current state
-            val memoryState = getMemoryOrThrow(card.id)
-            val lastReview = memoryState.reviewsList.lastOrNull()?.timestamp?.let {
+            val memoryState = memoryMap[card.id]
+
+            val lastReview = memoryState?.reviewsList?.lastOrNull()?.timestamp?.let {
                 LocalDateTime.ofEpochSecond(
                     it, 0, ZoneOffset.UTC
                 )
             } ?: LocalDateTime.now()
 
-            // Add latest review (for parameters computation
-            memoryState.reviewsList.add(
-                CardReview.newBuilder().setTimestamp(
-                    LocalDateTime.now().toEpochSecond(
-                        ZoneOffset.UTC
-                    )
-                ).setRating(rating).build()
-            )
-
             // Update memory state
             val daysElapsed = lastReview.until(LocalDateTime.now(), ChronoUnit.DAYS)
             val nextState = core.core.schedulerNextState(
-                SchedulerMemoryState(
-                    memoryState.stability,
-                    memoryState.difficulty,
-                ), daysElapsed.toUInt()
+                memoryState?.let {
+                    SchedulerMemoryState(
+                        it.stability,
+                        it.difficulty,
+                    )
+                }, daysElapsed.toUInt()
             ).let {
                 when (rating) {
                     Rating.RATING_HARD -> it.hard
@@ -125,8 +127,15 @@ class StudiesViewModel @Inject constructor(
 
             putMemory(
                 card.id,
-                memoryState.toBuilder().setStability(nextState.state.stability)
-                    .setDifficulty(nextState.state.difficulty).build()
+                (memoryState?.toBuilder()
+                    ?: CardMemoryState.newBuilder()).setStability(nextState.state.stability)
+                    .setDifficulty(nextState.state.difficulty).addReviews(
+                        CardReview.newBuilder().setTimestamp(
+                            LocalDateTime.now().toEpochSecond(
+                                ZoneOffset.UTC
+                            )
+                        ).setRating(rating).build()
+                    ).build()
             )
         }
     }

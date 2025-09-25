@@ -1,6 +1,7 @@
 use std::{path::PathBuf, sync::Arc};
 
 use android_logger::{Config, FilterBuilder};
+use fsrs::MemoryState;
 use itertools::Itertools;
 
 use crate::{
@@ -95,12 +96,12 @@ impl Core {
     }
     fn schedulerNextState(
         &self,
-        state: SchedulerMemoryState,
+        state: Option<SchedulerMemoryState>,
         days_elapsed: u32,
     ) -> Result<SchedulerNextState, CoreError> {
         Ok(SchedulerNextState::from(SchedulerCore::next_state(
             self,
-            fsrs::MemoryState::from(state),
+            state.map(MemoryState::from),
             days_elapsed,
         )?))
     }

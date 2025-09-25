@@ -2,12 +2,15 @@ package dev.vndx.flashbang.domain
 
 import dev.vndx.flashbang.Rating
 import dev.vndx.flashbang.ui.CardsUiState
+import dev.vndx.flashbang.ui.LocalDateTimeSerializer
 import kotlinx.serialization.Serializable
 import java.time.LocalDateTime
 import java.time.ZoneOffset
 
+@Serializable
 data class Study(
     val id: Long,
+    @Serializable(with = LocalDateTimeSerializer::class)
     val timestamp: LocalDateTime,
     val selection: List<String>,
     val name: String,
@@ -61,7 +64,7 @@ data class Study(
             LocalDateTime.ofEpochSecond(study.timestamp, 0, ZoneOffset.UTC),
             study.selectionList,
             study.name,
-            study.reviewsMap,
+            study.reviewsMap.toMutableMap(),
             study.finished
         )
     }

@@ -41,6 +41,7 @@ import dev.vndx.flashbang.ui.screens.CreateStudyScreen
 import dev.vndx.flashbang.ui.screens.DummyScreen
 import dev.vndx.flashbang.ui.screens.EditStudyScreen
 import dev.vndx.flashbang.ui.screens.ExploreScreen
+import dev.vndx.flashbang.ui.screens.ReviewScreen
 import dev.vndx.flashbang.ui.screens.Screen
 import dev.vndx.flashbang.ui.screens.SelectionScreen
 import dev.vndx.flashbang.ui.screens.SettingsScreen
@@ -182,6 +183,9 @@ class MainActivity() : ComponentActivity() {
                                             composeScreen(it)
                                         }
                                         entry<CardPreviewScreen> {
+                                            composeScreen(it)
+                                        }
+                                        entry<ReviewScreen> {
                                             composeScreen(it)
                                         }
                                         entry<SettingsScreen.SettingsAppearanceScreen> {

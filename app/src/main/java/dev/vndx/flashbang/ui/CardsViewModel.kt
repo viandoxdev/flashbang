@@ -8,6 +8,7 @@ import dev.vndx.flashbang.domain.Card
 import dev.vndx.flashbang.TAG
 import dev.vndx.flashbang.domain.Tag
 import dev.vndx.flashbang.Core
+import dev.vndx.flashbang.domain.Header
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -51,7 +52,18 @@ data class CardsData(
 
             val cards = load.cards.associate {
                 val locations = it.locations.map { path -> tagOf(path) }
-                val card = Card(it.id, it.name, locations, it.question, it.answer, it.header)
+                // TODO: Get rid of the whole header id thing on rust side, its unnecessary
+                val card = Card(
+                    it.id,
+                    it.name,
+                    locations,
+                    it.question,
+                    it.answer,
+                    it.header?.let { headerInfo ->
+                        Header(
+                            headerInfo.content()
+                        )
+                    })
 
                 locations.forEach { tag ->
                     tag.ancestors.forEach { ancestor ->

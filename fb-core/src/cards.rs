@@ -13,28 +13,30 @@ use crate::error::CoreError;
 use crate::Core;
 
 #[derive(uniffi::Object)]
-pub struct HeaderInner {
+pub struct HeaderInfoInner {
     inner: String,
+    id: u64,
 }
 
-uniffi::custom_newtype!(Header, Arc<HeaderInner>);
+uniffi::custom_newtype!(HeaderInfo, Arc<HeaderInfoInner>);
 
 #[derive(Clone)]
-pub struct Header(Arc<HeaderInner>);
+pub struct HeaderInfo(Arc<HeaderInfoInner>);
 
 #[derive(uniffi::Record)]
 pub struct CardInfo {
     id: String,
     name: String,
     locations: Vec<String>,
-    header: Option<Header>,
+    header: Option<HeaderInfo>,
     question: String,
     answer: String,
 }
 
 #[uniffi::export(with_foreign)]
 pub trait CardSource: Send + Sync {
-    fn header(&self) -> Option<Header>;
+    fn header_content(&self) -> Option<String>;
+    fn header_eq(&self, other: Option<Arc<dyn CardSource>>) -> bool;
     fn id(&self) -> String;
     fn name(&self) -> String;
     fn question(&self) -> String;
@@ -43,8 +45,11 @@ pub trait CardSource: Send + Sync {
 }
 
 impl<T: CardSource + ?Sized> CardSource for Arc<T> {
-    fn header(&self) -> Option<Header> {
-        (**self).header()
+    fn header_content(&self) -> Option<String> {
+        (**self).header_content()
+    }
+    fn header_eq(&self, other: Option<Arc<dyn CardSource>>) -> bool {
+        (**self).header_eq(other)
     }
     fn id(&self) -> String {
         (**self).id()
@@ -63,22 +68,33 @@ impl<T: CardSource + ?Sized> CardSource for Arc<T> {
     }
 }
 
-impl Header {
-    pub fn new(content: &str) -> Self {
-        Header(Arc::new(HeaderInner {
+impl HeaderInfo {
+    pub fn new(content: &str, id: u64) -> Self {
+        HeaderInfo(Arc::new(HeaderInfoInner {
             inner: content.to_owned(),
+            id,
         }))
     }
 }
 
-impl Deref for Header {
-    type Target = HeaderInner;
-    fn deref(&self) -> &HeaderInner {
+#[uniffi::export]
+impl HeaderInfoInner {
+    fn content(&self) -> String {
+        self.inner.clone()
+    }
+    fn id(&self) -> u64 {
+        self.id
+    }
+}
+
+impl Deref for HeaderInfo {
+    type Target = HeaderInfoInner;
+    fn deref(&self) -> &HeaderInfoInner {
         &self.0
     }
 }
 
-impl PartialEq for Header {
+impl PartialEq for HeaderInfo {
     fn eq(&self, other: &Self) -> bool {
         Arc::ptr_eq(&self.0, &other.0)
     }
@@ -103,19 +119,19 @@ impl CardState {
 }
 
 pub trait CardCore {
-    fn parse<'a>(&self, content: &'a str) -> Result<Vec<CardInfo>, CoreError>;
-    fn build_source<C: CardSource>(
+    fn parse<'a>(&self, id: u64, content: &'a str) -> Result<Vec<CardInfo>, CoreError>;
+    fn build_source(
         &self,
-        cards: impl IntoIterator<Item = C>,
+        cards: impl IntoIterator<Item = Arc<dyn CardSource>>,
         config: SourceConfig,
     ) -> Result<String, CoreError>;
 }
 
 impl CardCore for Core {
     /// Build the source for a set of cards and a config
-    fn build_source<C: CardSource>(
+    fn build_source(
         &self,
-        cards: impl IntoIterator<Item = C>,
+        cards: impl IntoIterator<Item = Arc<dyn CardSource>>,
         config: SourceConfig,
     ) -> Result<String, CoreError> {
         const CARDS_INTERNAL: &'static str = include_str!("./cards_internal.typ");
@@ -123,24 +139,25 @@ impl CardCore for Core {
         use std::io::Write;
 
         let mut w = Vec::new();
-        let mut last_header = None;
+        let mut last_card = None;
 
         writeln!(&mut w, "{CARDS_INTERNAL}")?;
         writeln!(&mut w, "#set page(width: {}pt)", config.page_width)?;
-        writeln!(&mut w, "#set text(size: {}pt, fill: rgb(\"#{:06X}\"))", config.text_size, config.text_color)?;
+        writeln!(&mut w, "#let _colors = (text: rgb(\"#{:06X}\"))", config.text_color)?;
+        writeln!(&mut w, "#let _sizes = (text: {}pt)", config.text_size)?;
+        writeln!(&mut w, "#set text(size: _sizes.text, fill: _colors.text)")?;
         writeln!(&mut w, "#[")?;
 
         for card in cards {
-            let current_header = card.header();
-            if last_header != current_header {
+            if !card.header_eq(last_card) {
+                let current_header = card.header_content();
                 writeln!(&mut w, "]")?;
                 writeln!(&mut w, "#[")?;
 
                 if let Some(header) = (&current_header).as_ref() {
-                    writeln!(&mut w, "{}", header.inner)?;
+                    writeln!(&mut w, "{}", header)?;
                 }
 
-                last_header = current_header;
             }
 
             write!(&mut w, "#card(\"{}\", \"{}\", (", card.id(), card.name())?;
@@ -152,6 +169,8 @@ impl CardCore for Core {
             write!(&mut w, "{}", card.question())?;
             writeln!(&mut w, "#answer")?;
             write!(&mut w, "{}", card.answer())?;
+
+            last_card = Some(card);
         }
 
         writeln!(&mut w, "]")?;
@@ -162,7 +181,7 @@ impl CardCore for Core {
     }
 
     /// Parse a typst source file for the cards inside
-    fn parse<'a>(&self, content: &'a str) -> Result<Vec<CardInfo>, CoreError> {
+    fn parse<'a>(&self, id: u64, content: &'a str) -> Result<Vec<CardInfo>, CoreError> {
         if content.starts_with("//![FLASHBANG IGNORE]")
             || content.starts_with("//![FLASHBANG INCLUDE]")
         {
@@ -214,7 +233,7 @@ impl CardCore for Core {
 
         // Skip before header (if any)
         let (content, has_header) =
-            match take_until::<&str, &str, Error<&str>>("#card").parse(content) {
+            match take_until::<&str, &str, Error<&str>>("//![FLASHBANG HEADER]").parse(content) {
                 // Found header section
                 Ok((content, _)) => (content, true),
                 // No header section, continue as usual
@@ -230,7 +249,7 @@ impl CardCore for Core {
 
         // Save header
         let header = if !header.is_empty() && has_header {
-            Some(Header::new(header))
+            Some(HeaderInfo::new(header, id))
         } else {
             None
         };

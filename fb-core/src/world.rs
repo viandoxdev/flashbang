@@ -197,9 +197,9 @@ pub trait WorldCore {
         branch: String,
         token: Option<String>,
     ) -> Result<LoadResult, CoreError>;
-    fn prepare_source<C: CardSource>(
+    fn prepare_source(
         &self,
-        cards: impl IntoIterator<Item = C>,
+        cards: impl IntoIterator<Item = Arc<dyn CardSource>>,
         config: SourceConfig,
     ) -> Result<(), CoreError>;
     fn compile(&self) -> Result<Vec<Arc<CardPage>>, CoreError>;
@@ -225,13 +225,14 @@ impl WorldCore for Core {
             let mut res = Vec::new();
 
             // We can use cached data
-            for entry in WalkDir::new(self.world.cache_path.join("workdir"))
+            for (index, entry) in WalkDir::new(self.world.cache_path.join("workdir"))
                 .into_iter()
                 .filter_map(|e| e.ok())
                 .filter(|e| e.path().extension().and_then(|ext| ext.to_str()) == Some("typ"))
+                .enumerate()
             {
                 let content = std::fs::read_to_string(entry.path())?;
-                match self.parse(&content) {
+                match self.parse(index as u64, &content) {
                     Ok(mut items) => {
                         res.append(&mut items);
                     }
@@ -268,10 +269,10 @@ impl WorldCore for Core {
                     .unwrap_or_default()
         });
 
-        for item in items {
+        for (index, item) in items.enumerate() {
             let content = api.get_blob(&item.sha)?;
 
-            match self.parse(&content) {
+            match self.parse(index as u64, &content) {
                 Ok(mut items) => {
                     res.append(&mut items);
                 }
@@ -298,9 +299,9 @@ impl WorldCore for Core {
         })
     }
 
-    fn prepare_source<C: CardSource>(
+    fn prepare_source(
         &self,
-        cards: impl IntoIterator<Item = C>,
+        cards: impl IntoIterator<Item = Arc<dyn CardSource>>,
         config: SourceConfig,
     ) -> Result<(), CoreError> {
         use crate::cards::CardCore;

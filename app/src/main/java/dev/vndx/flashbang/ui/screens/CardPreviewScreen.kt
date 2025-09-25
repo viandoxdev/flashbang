@@ -1,28 +1,20 @@
 package dev.vndx.flashbang.ui.screens
 
 import android.util.Log
-import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.AnchoredDraggableState
 import androidx.compose.foundation.gestures.DraggableAnchors
-import androidx.compose.foundation.gestures.FlingBehavior
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.anchoredDraggable
 import androidx.compose.foundation.gestures.animateTo
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredWidth
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -30,28 +22,23 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil3.compose.AsyncImage
-import coil3.compose.rememberAsyncImagePainter
 import coil3.request.ImageRequest
 import coil3.svg.SvgDecoder
 import dev.vndx.flashbang.R
 import dev.vndx.flashbang.TAG
+import dev.vndx.flashbang.domain.Card
 import dev.vndx.flashbang.ui.CardsUiState
 import dev.vndx.flashbang.ui.CardsViewModel
 import dev.vndx.flashbang.ui.SettingsViewModel
@@ -65,10 +52,8 @@ import java.nio.ByteBuffer
 import kotlin.math.roundToInt
 
 @Serializable
-class CardPreviewScreen(val cardId: String) : Screen {
+class CardPreviewScreen(val card: Card) : Screen {
     override fun tab() = Tab.Cards
-
-    data class DragAnchors(val page: Int)
 
     @Transient
     var draggableState: AnchoredDraggableState<Int>? = null
@@ -114,18 +99,6 @@ class CardPreviewScreen(val cardId: String) : Screen {
             return
         }
 
-        if (!cardsState.cards.containsKey(cardId)) {
-            Log.e(TAG, "Can't preview card with id '${cardId}', no such card")
-            onBack(1)
-            return
-        }
-
-        val card by remember() {
-            derivedStateOf {
-                cardsState.cards[cardId]!!
-            }
-        }
-        val configuration = LocalConfiguration.current
         val density = LocalDensity.current
         val preferences by viewModel<SettingsViewModel>().preferences.collectAsState()
 
@@ -135,11 +108,6 @@ class CardPreviewScreen(val cardId: String) : Screen {
                 .padding(Sizes.spacingMedium),
         ) {
             val color = MaterialTheme.colorScheme.onBackground
-            Log.e(
-                TAG, "Color: $color, ${color.value.toHexString()} ${
-                    (color.value and 0xFFFFFFuL).toUInt().toHexString()
-                }"
-            )
             val pageWidthPixels = with(density) { maxWidth.toPx() }
             val context = LocalContext.current
             val pagesFlow = remember(maxWidth, density, preferences) {
@@ -147,7 +115,7 @@ class CardPreviewScreen(val cardId: String) : Screen {
                     Log.w(TAG, "Compiling for $maxWidth")
                     val pages = cardsViewModel.core.compileCards(
                         listOf(card), SourceConfig(
-                            (pageWidthPixels * 3 / 4).toUInt(),
+                            maxWidth.value.roundToInt().toUInt(),
                             preferences.preferences.cardFontSize.toUInt(),
                             ((color.value shr 32) and 0xFFFFFFuL).toUInt()
                         )

@@ -54,4 +54,8 @@
     <string name="study_deletion_content">Cette action n\'est pas reversible.</string>
     <string name="flip">Retourner</string>
     <string name="card_font_size">Taille de la police des cartes</string>
+    <string name="rating_easy">Facile</string>
+    <string name="rating_good">Bien</string>
+    <string name="rating_hard">Difficile</string>
+    <string name="rating_again">Encore</string>
 </resources>
