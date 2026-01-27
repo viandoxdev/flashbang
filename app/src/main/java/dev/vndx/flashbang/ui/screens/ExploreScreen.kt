@@ -132,7 +132,7 @@ open class ExploreScreen() : Screen {
             name = card.name,
             scheduled = scheduled,
             onClick = {
-                onNavigate(CardPreviewScreen(card))
+                onNavigate(CardPreviewScreen(card.id))
             }
         )
     }

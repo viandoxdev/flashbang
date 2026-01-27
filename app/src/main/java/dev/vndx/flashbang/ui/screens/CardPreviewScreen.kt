@@ -59,7 +59,7 @@ import java.nio.ByteBuffer
 import kotlin.math.roundToInt
 
 @Serializable
-class CardPreviewScreen(val card: Card) : Screen {
+class CardPreviewScreen(val cardId: String) : Screen {
     override fun tab() = Tab.Cards
 
     @Transient
@@ -100,7 +100,8 @@ class CardPreviewScreen(val card: Card) : Screen {
             if (index in pages.indices) {
                 val page = pages[index]
                 contentToSave = page.svgContent
-                launcher.launch("card_${card.id}_${index + 1}.svg")
+                val sanitizedId = cardId.replace(Regex("[^a-zA-Z0-9._-]"), "_")
+                launcher.launch("card_${sanitizedId}_${index + 1}.svg")
             }
         }) {
             Icon(
@@ -143,6 +144,14 @@ class CardPreviewScreen(val card: Card) : Screen {
             return
         }
 
+        val card = cardsState.cards[cardId]
+        if (card == null) {
+            // Card not found (e.g. deleted or error), handle gracefully?
+            // For now, loading or empty.
+            Loading() // Or some error text
+            return
+        }
+
         val density = LocalDensity.current
         val preferences by viewModel<SettingsViewModel>().preferences.collectAsState()
 
@@ -154,8 +163,8 @@ class CardPreviewScreen(val card: Card) : Screen {
             val color = MaterialTheme.colorScheme.onBackground
             val pageWidthPixels = with(density) { maxWidth.toPx() }
             val context = LocalContext.current
-            val pagesFlow = remember(maxWidth, density, preferences) {
-                flow {
+            val pagesFlow = remember(maxWidth, density, preferences, card) {
+                flow<List<RenderedPage>> {
                     Log.w(TAG, "Compiling for $maxWidth")
                     val pages = cardsViewModel.core.compileCards(
                         listOf(card), SourceConfig(

@@ -84,7 +84,7 @@ class SelectionScreen(@Transient val _selection: SelectionViewModel? = null) : E
             name = card.name(),
             scheduled = false,
             onClick = { selection.toggleCard(card) },
-            onLongClick = { onNavigate(CardPreviewScreen(card)) }
+            onLongClick = { onNavigate(CardPreviewScreen(card.id)) }
         ) {
 
             CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Companion.Unspecified) {
