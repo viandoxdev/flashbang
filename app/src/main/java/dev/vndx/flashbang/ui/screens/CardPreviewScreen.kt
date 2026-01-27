@@ -1,6 +1,8 @@
 package dev.vndx.flashbang.ui.screens
 
 import android.util.Log
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.gestures.AnchoredDraggableState
 import androidx.compose.foundation.gestures.DraggableAnchors
 import androidx.compose.foundation.gestures.Orientation
@@ -21,10 +23,14 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
@@ -43,6 +49,7 @@ import dev.vndx.flashbang.ui.CardsUiState
 import dev.vndx.flashbang.ui.CardsViewModel
 import dev.vndx.flashbang.ui.SettingsViewModel
 import dev.vndx.flashbang.ui.Sizes
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
@@ -57,12 +64,51 @@ class CardPreviewScreen(val card: Card) : Screen {
 
     @Transient
     var draggableState: AnchoredDraggableState<Int>? = null
+
+    @Transient
+    private val pagesState = mutableStateOf<List<RenderedPage>>(emptyList())
+
     var pagesCount: Int = 0
 
     @Composable
     override fun ComposeTopBarAction(onNavigate: (Screen) -> Unit, onBack: (Int?) -> Unit) {
         val scope = rememberCoroutineScope()
         val cardsViewModel = viewModel<CardsViewModel>()
+        val context = LocalContext.current
+        val pages by pagesState
+
+        var contentToSave: String? by rememberSaveable { mutableStateOf(null) }
+        val launcher =
+            rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("image/svg+xml")) { uri ->
+                uri?.let {
+                    contentToSave?.let { content ->
+                        scope.launch(Dispatchers.IO) {
+                            try {
+                                context.contentResolver.openOutputStream(it)?.use { stream ->
+                                    stream.write(content.toByteArray())
+                                }
+                            } catch (e: Exception) {
+                                Log.e(TAG, "Failed to save SVG", e)
+                            }
+                        }
+                    }
+                }
+            }
+
+        IconButton(onClick = {
+            val index = draggableState?.currentValue ?: 0
+            if (index in pages.indices) {
+                val page = pages[index]
+                contentToSave = page.svgContent
+                launcher.launch("card_${card.id}_${index + 1}.svg")
+            }
+        }) {
+            Icon(
+                painter = painterResource(R.drawable.outline_download_32),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onBackground
+            )
+        }
 
         IconButton(onClick = {
             val source = cardsViewModel.core.inspectSource() ?: "?"
@@ -118,15 +164,22 @@ class CardPreviewScreen(val card: Card) : Screen {
                             ((color.value shr 32) and 0xFFFFFFuL).toUInt()
                         )
                     ).filterIndexed { index, _ -> index > 0 }.map {
-                        ImageRequest.Builder(context).data(ByteBuffer.wrap(it.svg().toByteArray()))
-                            .decoderFactory(
-                                SvgDecoder.Factory()
-                            ).build()
+                        val svg = it.svg()
+                        val request =
+                            ImageRequest.Builder(context).data(ByteBuffer.wrap(svg.toByteArray()))
+                                .decoderFactory(
+                                    SvgDecoder.Factory()
+                                ).build()
+                        RenderedPage(svg, request)
                     }
                     emit(pages)
                 }
             }
             val pages by pagesFlow.collectAsState(emptyList())
+
+            LaunchedEffect(pages) {
+                pagesState.value = pages
+            }
 
             draggableState = remember {
                 AnchoredDraggableState(
@@ -163,7 +216,7 @@ class CardPreviewScreen(val card: Card) : Screen {
                             .verticalScroll(rememberScrollState())
                             .padding(bottom = Sizes.spacingHuge * 2),
                         contentScale = ContentScale.FillWidth,
-                        model = page,
+                        model = page.imageRequest,
                         contentDescription = null,
                     )
                 }
@@ -171,3 +224,5 @@ class CardPreviewScreen(val card: Card) : Screen {
         }
     }
 }
+
+data class RenderedPage(val svgContent: String, val imageRequest: ImageRequest)
