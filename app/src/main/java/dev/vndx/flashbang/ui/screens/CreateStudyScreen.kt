@@ -42,6 +42,9 @@ import dev.vndx.flashbang.ui.formatRelativeDate
 import kotlinx.serialization.Serializable
 import java.time.LocalDate
 
+// TODO: Go back one screen before / after (idk) creating a new study so 
+// that the back buffer doesn't contain the create study screen anymore
+
 @Serializable
 class CreateStudyScreen : Screen {
     override fun tab(): Tab = Tab.Study

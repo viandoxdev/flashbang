@@ -272,37 +272,3 @@ impl CardCore for Core {
     }
 }
 
-// impl Tag {
-//     fn new(full_path: &str, store: &mut CardStore) -> Self {
-//         // Find the index of the last '.' character
-//         // The tag's name is str[index..], the rest is there to make sure we can
-//         // distinguish between to tags of the same name under different paths :
-//         //  Maths.Algebra.Theorems != Maths.Calculus.Theorems
-//         let index = full_path
-//             .char_indices()
-//             .rev()
-//             .find_map(|(i, c)| (c == '.').then_some(i + 1))
-//             .unwrap_or(0);
-//         let inner = TagInner {
-//             name: full_path[index..].to_owned(),
-//             full_path: full_path.to_owned(),
-//             state: Mutex::new(TagState {
-//                 children: HashSet::new(),
-//                 cards: HashSet::new(),
-//                 indirect_cards: HashSet::new(),
-//             }),
-//         };
-//
-//         let tag = Tag(Arc::new(inner));
-//
-//         if let Some(parent) = tag.parent(store) {
-//             parent.add_child(tag.clone());
-//         }
-//
-//         let root = tag.root(store);
-//
-//         store.roots.insert(root);
-//
-//         tag
-//     }
-// }

@@ -159,9 +159,11 @@ interface Screen : NavKey {
                 }
             }
         ) { padding ->
+            val bottom = padding.calculateBottomPadding();
+            val top = padding.calculateTopPadding();
             Box(
                 Modifier
-                    .padding(padding)
+                    .padding(top = top, bottom = bottom)
                     .background(MaterialTheme.colorScheme.background)
             ) {
                 Compose(onNavigate = onNavigate, onBack = onBack)

@@ -89,8 +89,8 @@ class StudiesViewModel @Inject constructor(
         edit {
             // Update study
             val protoStudy = getStudiesOrThrow(study.id)
-            protoStudy.toBuilder().putReviews(card.id, rating).build()
-            putStudies(study.id, protoStudy)
+            val newStudy = protoStudy.toBuilder().putReviews(card.id, rating).build()
+            putStudies(study.id, newStudy)
 
             Log.w(TAG, "Updated study proto")
 

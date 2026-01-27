@@ -44,14 +44,12 @@ class Core @Inject constructor(private val context: Application) {
         return results
     }
 
+    fun inspectSource(): String? = core.worldInspectSource()
+
     suspend fun compileCards(cards: List<CardSource>, config: SourceConfig): List<CardPage> {
-        Log.w(TAG, "Waiting on compilation lock")
         return compilationMutex.withLock {
-            Log.w(TAG, "Preparing source")
             core.worldPrepareSource(cards, config)
-            Log.w(TAG, "Compiling")
             val res = core.worldCompile()
-            Log.w(TAG, "Compiled")
             res
         }
     }

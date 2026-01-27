@@ -62,16 +62,14 @@ class CardPreviewScreen(val card: Card) : Screen {
     @Composable
     override fun ComposeTopBarAction(onNavigate: (Screen) -> Unit, onBack: (Int?) -> Unit) {
         val scope = rememberCoroutineScope()
+        val cardsViewModel = viewModel<CardsViewModel>()
+
         IconButton(onClick = {
-            if (pagesCount == 0) {
-                return@IconButton
-            }
-            scope.launch {
-                draggableState?.animateTo(((draggableState?.currentValue ?: -1) + 1) % pagesCount)
-            }
+            val source = cardsViewModel.core.inspectSource() ?: "?"
+            onNavigate(SourcePreviewScreen(source))
         }) {
             Icon(
-                painter = painterResource(R.drawable.outline_flip_32),
+                painter = painterResource(R.drawable.outline_code_32),
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onBackground
             )

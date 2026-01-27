@@ -60,6 +60,9 @@ impl Core {
     ) -> Result<LoadResult, CoreError> {
         WorldCore::load_from_github(self, repo, branch, token)
     }
+    fn worldInspectSource(&self) -> Option<String> {
+        WorldCore::inspect_source(self)
+    }
     fn worldPrepareSource(
         &self,
         cards: Vec<Arc<dyn CardSource>>,

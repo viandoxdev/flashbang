@@ -11,13 +11,16 @@ use itertools::Itertools;
 use parking_lot::Mutex;
 use reqwest::{StatusCode, blocking::Client};
 use typst::{
-    diag::{FileError, FileResult}, foundations::Bytes, layout::{Page, PagedDocument}, syntax::{package::PackageSpec, FileId, Source, VirtualPath}, text::{Font, FontBook}, utils::LazyHash, Library, World as TypstWorld
+    Library, LibraryExt, World as TypstWorld, diag::{FileError, FileResult}, foundations::Bytes, layout::{Page, PagedDocument}, syntax::{FileId, Source, VirtualPath, package::PackageSpec}, text::{Font, FontBook}, utils::LazyHash
 };
 use typst_kit::fonts::{FontSearcher, FontSlot as TypstFontSlot};
 use walkdir::WalkDir;
 
 use crate::{
-    cards::{CardInfo, CardSource, SourceConfig}, github::GithubAPI, Core, error::CoreError
+    Core,
+    cards::{CardInfo, CardSource, SourceConfig},
+    error::CoreError,
+    github::GithubAPI,
 };
 
 /// The default Typst registry.
@@ -28,14 +31,14 @@ pub const DEFAULT_NAMESPACE: &str = "preview";
 
 enum FontSlot {
     Typst(TypstFontSlot),
-    Extra(Font)
+    Extra(Font),
 }
 
 impl FontSlot {
     fn get(&self) -> Option<Font> {
         match self {
             Self::Typst(slot) => slot.get(),
-            Self::Extra(font) => Some(font.clone())
+            Self::Extra(font) => Some(font.clone()),
         }
     }
 }
@@ -125,7 +128,7 @@ impl Error for LoadError {}
 #[derive(uniffi::Record)]
 pub struct LoadResult {
     cards: Vec<CardInfo>,
-    errors: Vec<LoadError>
+    errors: Vec<LoadError>,
 }
 
 pub struct WorldState {
@@ -167,7 +170,7 @@ impl WorldState {
             include_bytes!("../assets/lexend_medium.ttf").as_slice(),
             include_bytes!("../assets/lexend_semibold.ttf").as_slice(),
             include_bytes!("../assets/lexend_bold.ttf").as_slice(),
-            include_bytes!("../assets/notosansmath_regular.ttf").as_slice()
+            include_bytes!("../assets/notosansmath_regular.ttf").as_slice(),
         ] {
             let buffer = Bytes::new(data);
             for font in Font::iter(buffer) {
@@ -202,6 +205,7 @@ pub trait WorldCore {
         cards: impl IntoIterator<Item = Arc<dyn CardSource>>,
         config: SourceConfig,
     ) -> Result<(), CoreError>;
+    fn inspect_source(&self) -> Option<String>;
     fn compile(&self) -> Result<Vec<Arc<CardPage>>, CoreError>;
     fn new_cached_directories(&self) -> Vec<PathBuf>;
 }
@@ -245,10 +249,7 @@ impl WorldCore for Core {
                 };
             }
 
-            return Ok(LoadResult {
-                cards: res,
-                errors,
-            });
+            return Ok(LoadResult { cards: res, errors });
         }
 
         // shas differ: we need to updated our cache
@@ -293,10 +294,7 @@ impl WorldCore for Core {
 
         self.world.new_directories.lock().push(workdir);
 
-        Ok(LoadResult {
-            cards: res,
-            errors,
-        })
+        Ok(LoadResult { cards: res, errors })
     }
 
     fn prepare_source(
@@ -308,8 +306,6 @@ impl WorldCore for Core {
 
         let content = self.build_source(cards, config)?;
 
-        log::warn!("full typst source: '{content}'");
-
         self.world.files.lock().insert(
             self.world.main,
             FileSlot::with_source(self.world.main, Source::new(self.world.main, content)),
@@ -320,10 +316,8 @@ impl WorldCore for Core {
     fn compile(&self) -> Result<Vec<Arc<CardPage>>, CoreError> {
         let output = typst::compile::<PagedDocument>(&self.world)
             .output
-            .map_err(|errors| {
-                CoreError::Typst {
-                    details: format!("{errors:?}")
-                }
+            .map_err(|errors| CoreError::Typst {
+                details: format!("{errors:?}"),
             })?;
 
         Ok(output
@@ -331,6 +325,18 @@ impl WorldCore for Core {
             .into_iter()
             .map(|p| Arc::new(CardPage(p)))
             .collect_vec())
+    }
+    fn inspect_source(&self) -> Option<String> {
+        Some(
+            self.world
+                .get_file(&self.world.main)?
+                .source
+                .get()?
+                .as_ref()
+                .ok()?
+                .text()
+                .to_string(),
+        )
     }
     fn new_cached_directories(&self) -> Vec<PathBuf> {
         self.world.new_directories.lock().drain(..).collect_vec()

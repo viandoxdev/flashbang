@@ -52,6 +52,7 @@ import dev.vndx.flashbang.ui.Sizes
 import dev.vndx.flashbang.ui.StudiesState
 import dev.vndx.flashbang.ui.StudiesViewModel
 import kotlinx.coroutines.flow.flow
+import kotlinx.serialization.Serializable
 import uniffi.mobile.SourceConfig
 import java.nio.ByteBuffer
 import kotlin.math.roundToInt
@@ -71,6 +72,7 @@ fun RowScope.ReviewButton(@StringRes string: Int, color: Color, onClick: () -> U
     }
 }
 
+@Serializable
 class ReviewScreen(val study: Study) : Screen {
     init {
         Log.w(TAG, "New review screen for " + study.id.toString())
@@ -80,7 +82,14 @@ class ReviewScreen(val study: Study) : Screen {
     override fun tab(): Tab = Tab.Study
 
     // Pseudo random yet consistent sort of the cards
-    val cards = study.selection.filter { !study.reviews.contains(it) }.sortedBy { (it.hashCode() + study.id).hashCode() }
+    val cards = study.selection.filter {
+        if (!study.reviews.contains(it)) {
+            return@filter true
+        } else {
+            Log.w(TAG, "Card $it has already been reviewed")
+            return@filter false
+        }
+    }.sortedBy { (it.hashCode() + study.id).hashCode() }
 
     @Composable
     fun Loading() {
@@ -118,6 +127,7 @@ class ReviewScreen(val study: Study) : Screen {
                 ReviewButton(resource, color) {
                     Log.w(TAG, card?.id ?: "No card")
                     if (card != null) {
+                        Log.w(TAG, "Reviewed card ${card.id}")
                         studiesViewModel.updateStudy(study, rating, card)
                     }
                     if (page >= pagesCount - 1) {

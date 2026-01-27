@@ -36,6 +36,7 @@ import dev.vndx.flashbang.ui.CardsViewModel
 import dev.vndx.flashbang.ui.FlashbangTheme
 import dev.vndx.flashbang.ui.PreferencesState
 import dev.vndx.flashbang.ui.SettingsViewModel
+import dev.vndx.flashbang.ui.StudiesViewModel
 import dev.vndx.flashbang.ui.screens.CardPreviewScreen
 import dev.vndx.flashbang.ui.screens.CreateStudyScreen
 import dev.vndx.flashbang.ui.screens.DummyScreen
@@ -45,6 +46,7 @@ import dev.vndx.flashbang.ui.screens.ReviewScreen
 import dev.vndx.flashbang.ui.screens.Screen
 import dev.vndx.flashbang.ui.screens.SelectionScreen
 import dev.vndx.flashbang.ui.screens.SettingsScreen
+import dev.vndx.flashbang.ui.screens.SourcePreviewScreen
 import dev.vndx.flashbang.ui.screens.StudiesScreen
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.map
@@ -66,6 +68,7 @@ val localNavSharedTransitionScope: ProvidableCompositionLocal<SharedTransitionSc
 class MainActivity() : ComponentActivity() {
 
     val settingsViewModel: SettingsViewModel by viewModels()
+    val studiesViewModel: StudiesViewModel by viewModels()
     private val cardsViewModel: CardsViewModel by viewModels()
 
     @OptIn(ExperimentalSharedTransitionApi::class)
@@ -183,6 +186,9 @@ class MainActivity() : ComponentActivity() {
                                             composeScreen(it)
                                         }
                                         entry<CardPreviewScreen> {
+                                            composeScreen(it)
+                                        }
+                                        entry<SourcePreviewScreen> {
                                             composeScreen(it)
                                         }
                                         entry<ReviewScreen> {
