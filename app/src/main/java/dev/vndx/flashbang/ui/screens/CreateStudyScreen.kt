@@ -33,14 +33,19 @@ import dev.vndx.flashbang.data.dateTimeFormatter
 import dev.vndx.flashbang.domain.Card
 import dev.vndx.flashbang.domain.Study
 import dev.vndx.flashbang.domain.Tag
+import dev.vndx.flashbang.ui.CardsUiState
+import dev.vndx.flashbang.ui.CardsViewModel
 import dev.vndx.flashbang.ui.Directory
 import dev.vndx.flashbang.ui.Flashcard
 import dev.vndx.flashbang.ui.SettingsViewModel
 import dev.vndx.flashbang.ui.Sizes
+import dev.vndx.flashbang.ui.StudiesState
 import dev.vndx.flashbang.ui.StudiesViewModel
 import dev.vndx.flashbang.ui.formatRelativeDate
 import kotlinx.serialization.Serializable
 import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.ZoneOffset
 
 // TODO: Go back one screen before / after (idk) creating a new study so 
 // that the back buffer doesn't contain the create study screen anymore
@@ -55,6 +60,8 @@ class CreateStudyScreen : Screen {
         val preferences = preferencesState.preferences
         val studiesViewModel = viewModel<StudiesViewModel>()
         val selectionViewModel = viewModel<SelectionViewModel>()
+        val cardsViewModel = viewModel<CardsViewModel>()
+
         val count = selectionViewModel.selection.size
         val summary by remember(selectionViewModel) {
             derivedStateOf {
@@ -104,10 +111,32 @@ class CreateStudyScreen : Screen {
                     style = MaterialTheme.typography.labelLarge
                 )
 
-                TextButton(onClick = {
-                    onNavigate(SelectionScreen(selectionViewModel))
-                }) {
-                    Text(stringResource(R.string.edit), style = MaterialTheme.typography.labelMedium)
+                Row(horizontalArrangement = Arrangement.spacedBy(Sizes.spacingSmall)) {
+                    TextButton(onClick = {
+                        val currentStudiesState = studiesViewModel.studiesState.value
+                        val currentCardsState = cardsViewModel.uiState.value
+
+                        if (currentStudiesState is StudiesState.Success && currentCardsState is CardsUiState.Success) {
+                            val now = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)
+                            val dueCards = currentStudiesState.proto.memoryMap.filter { (_, memory) ->
+                                memory.dueDate <= now
+                            }.keys
+
+                            val cardsToAdd = dueCards.mapNotNull { id -> currentCardsState.cards[id] }
+                            cardsToAdd.forEach { selectionViewModel.selectCard(it) }
+                        }
+                    }) {
+                        Text("Add Scheduled", style = MaterialTheme.typography.labelMedium)
+                    }
+
+                    TextButton(onClick = {
+                        onNavigate(SelectionScreen(selectionViewModel))
+                    }) {
+                        Text(
+                            stringResource(R.string.edit),
+                            style = MaterialTheme.typography.labelMedium
+                        )
+                    }
                 }
             }
 

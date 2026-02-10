@@ -15,6 +15,8 @@ import dev.vndx.flashbang.domain.Card
 import dev.vndx.flashbang.domain.Study
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.filterIsInstance
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -34,6 +36,47 @@ class StudiesViewModel @Inject constructor(
     }.stateIn(
         viewModelScope, SharingStarted.WhileSubscribed(5000), StudiesState.Loading
     )
+
+    init {
+        viewModelScope.launch(Dispatchers.IO) {
+            studiesState.filterIsInstance<StudiesState.Success>().first().let { state ->
+                val memoryMap = state.proto.memoryMap
+                val toUpdate = memoryMap.filter { (id, memory) ->
+                    memory.dueDate == 0L && memory.reviewsList.isNotEmpty()
+                }
+
+                if (toUpdate.isNotEmpty()) {
+                    Log.i(TAG, "Migrating ${toUpdate.size} cards to have due_date")
+                    val updates = mutableMapOf<String, CardMemoryState>()
+
+                    toUpdate.forEach { (id, memory) ->
+                        val (currentState, lastDelay, lastReviewTime) = calculateStateFromReviews(
+                            id,
+                            memory.reviewsList
+                        ) ?: return@forEach
+
+                        val dueDate = lastReviewTime!!.plusHours((lastDelay * 24f).toLong())
+                            .toEpochSecond(ZoneOffset.UTC)
+
+                        val newMemory = memory.toBuilder()
+                            .setStability(currentState?.stability ?: 0f)
+                            .setDifficulty(currentState?.difficulty ?: 0f)
+                            .setDueDate(dueDate)
+                            .build()
+                        updates[id] = newMemory
+                    }
+
+                    if (updates.isNotEmpty()) {
+                        edit {
+                            updates.forEach { (id, mem) ->
+                                putMemory(id, mem)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 
 
     private fun edit(transform: Studies.Builder.() -> Unit) {
@@ -125,12 +168,15 @@ class StudiesViewModel @Inject constructor(
             // Update card's next scheduled date
             val scheduledFor = LocalDateTime.now().plusHours((nextState.delay * 24f).toLong())
             card.scheduledFor = scheduledFor.toLocalDate()
+            val dueDate = scheduledFor.toEpochSecond(ZoneOffset.UTC)
 
             putMemory(
                 card.id,
                 (memoryState?.toBuilder()
                     ?: CardMemoryState.newBuilder()).setStability(nextState.state.stability)
-                    .setDifficulty(nextState.state.difficulty).addReviews(
+                    .setDifficulty(nextState.state.difficulty)
+                    .setDueDate(dueDate)
+                    .addReviews(
                         CardReview.newBuilder().setTimestamp(
                             LocalDateTime.now().toEpochSecond(
                                 ZoneOffset.UTC
@@ -162,6 +208,54 @@ class StudiesViewModel @Inject constructor(
         // Sort reviews by timestamp
         val sortedReviews = reviews.sortedBy { it.timestamp }
 
+        val (currentState, lastDelay, lastReviewTime) = calculateStateFromReviews(
+            cardId,
+            sortedReviews
+        ) ?: Triple(null, 0f, null)
+
+        edit {
+            if (sortedReviews.isEmpty()) {
+                removeMemory(cardId)
+            } else {
+                val builder = if (containsMemory(cardId)) getMemoryOrThrow(cardId).toBuilder() else CardMemoryState.newBuilder()
+                builder.clearReviews()
+                builder.addAllReviews(sortedReviews)
+
+                if (currentState != null) {
+                    builder.setStability(currentState.stability)
+                    builder.setDifficulty(currentState.difficulty)
+                    if (lastReviewTime != null) {
+                        val scheduledFor = lastReviewTime.plusHours((lastDelay * 24f).toLong())
+                        builder.setDueDate(scheduledFor.toEpochSecond(ZoneOffset.UTC))
+                    }
+                } else {
+                    // Reset if no reviews or cleared (though isEmpty check handles this usually)
+                    builder.clearStability()
+                    builder.clearDifficulty()
+                    builder.clearDueDate()
+                }
+
+                putMemory(cardId, builder.build())
+            }
+        }
+
+        // Update Card object if provided
+        card?.let {
+            if (lastReviewTime != null) {
+                val scheduledFor = lastReviewTime!!.plusHours((lastDelay * 24f).toLong())
+                it.scheduledFor = scheduledFor.toLocalDate()
+            } else {
+                it.scheduledFor = null
+            }
+        }
+    }
+
+    private fun calculateStateFromReviews(
+        cardId: String,
+        reviews: List<CardReview>
+    ): Triple<SchedulerMemoryState?, Float, LocalDateTime?>? {
+        val sortedReviews = reviews.sortedBy { it.timestamp }
+
         var currentState: SchedulerMemoryState? = null
         var lastReviewTime: LocalDateTime? = null
         var lastDelay: Float = 0f
@@ -172,7 +266,8 @@ class StudiesViewModel @Inject constructor(
             // Calculate days elapsed since last review
             // For the first review, daysElapsed is usually treated as 0 or time since creation.
             // Here we use 0 if it's the first review.
-            val daysElapsed = lastReviewTime?.until(currentReviewTime, ChronoUnit.DAYS)?.toInt()?.coerceAtLeast(0)?.toUInt() ?: 0u
+            val daysElapsed = lastReviewTime?.until(currentReviewTime, ChronoUnit.DAYS)?.toInt()
+                ?.coerceAtLeast(0)?.toUInt() ?: 0u
 
             try {
                 val nextStates = core.core.schedulerNextState(currentState, daysElapsed)
@@ -196,36 +291,9 @@ class StudiesViewModel @Inject constructor(
             }
         }
 
-        edit {
-            if (sortedReviews.isEmpty()) {
-                removeMemory(cardId)
-            } else {
-                val builder = if (containsMemory(cardId)) getMemoryOrThrow(cardId).toBuilder() else CardMemoryState.newBuilder()
-                builder.clearReviews()
-                builder.addAllReviews(sortedReviews)
+        if (lastReviewTime == null) return null
 
-                if (currentState != null) {
-                    builder.setStability(currentState.stability)
-                    builder.setDifficulty(currentState.difficulty)
-                } else {
-                    // Reset if no reviews or cleared (though isEmpty check handles this usually)
-                    builder.clearStability()
-                    builder.clearDifficulty()
-                }
-
-                putMemory(cardId, builder.build())
-            }
-        }
-
-        // Update Card object if provided
-        card?.let {
-            if (lastReviewTime != null) {
-                val scheduledFor = lastReviewTime!!.plusHours((lastDelay * 24f).toLong())
-                it.scheduledFor = scheduledFor.toLocalDate()
-            } else {
-                it.scheduledFor = null
-            }
-        }
+        return Triple(currentState, lastDelay, lastReviewTime)
     }
 }
 
