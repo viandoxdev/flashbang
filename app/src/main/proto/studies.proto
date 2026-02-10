@@ -20,6 +20,7 @@ message CardMemoryState {
   float stability = 1;
   float difficulty = 2;
   repeated CardReview reviews = 3;
+  uint64 due_date = 4;
 }
 
 message Study {
