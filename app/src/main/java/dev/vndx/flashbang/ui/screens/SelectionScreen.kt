@@ -31,27 +31,27 @@ import javax.inject.Inject
 
 @HiltViewModel
 class SelectionViewModel @Inject constructor() : ViewModel() {
-    val selection = mutableStateSetOf<Card>()
+    val selection = mutableStateSetOf<String>()
 
     fun isSelected(card: Card): Boolean =
-        selection.contains(card)
+        selection.contains(card.id)
 
     fun isEmpty(): Boolean = selection.isEmpty()
 
     fun clear() = selection.clear()
 
     fun toggleCard(card: Card) {
-        if (!selection.add(card)) {
-            selection.remove(card)
+        if (!selection.add(card.id)) {
+            selection.remove(card.id)
         }
     }
 
     fun deselectCard(card: Card) {
-        selection.remove(card)
+        selection.remove(card.id)
     }
 
     fun selectCard(card: Card) {
-        selection.add(card)
+        selection.add(card.id)
     }
 }
 

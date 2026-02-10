@@ -62,10 +62,19 @@ class CreateStudyScreen : Screen {
         val selectionViewModel = viewModel<SelectionViewModel>()
         val cardsViewModel = viewModel<CardsViewModel>()
 
+        val cardsState by cardsViewModel.uiState.collectAsState()
+
         val count = selectionViewModel.selection.size
-        val summary by remember(selectionViewModel) {
+        val summary by remember(selectionViewModel.selection, cardsState) {
             derivedStateOf {
-                Study.buildSelectionSummary(selectionViewModel.selection)
+                val state = cardsState
+                if (state is CardsUiState.Success) {
+                    val selectedCards =
+                        selectionViewModel.selection.mapNotNull { state.cards[it] }.toSet()
+                    Study.buildSelectionSummary(selectedCards)
+                } else {
+                    emptyList()
+                }
             }
         }
         var name by remember { mutableStateOf("") }
@@ -112,6 +121,14 @@ class CreateStudyScreen : Screen {
                 )
 
                 Row(horizontalArrangement = Arrangement.spacedBy(Sizes.spacingSmall)) {
+                    if (selectionViewModel.selection.isNotEmpty()) {
+                        TextButton(onClick = {
+                            selectionViewModel.clear()
+                        }) {
+                            Text("Clear", style = MaterialTheme.typography.labelMedium)
+                        }
+                    }
+
                     TextButton(onClick = {
                         val currentStudiesState = studiesViewModel.studiesState.value
                         val currentCardsState = cardsViewModel.uiState.value
@@ -182,7 +199,7 @@ class CreateStudyScreen : Screen {
                 shape = RoundedCornerShape(Sizes.cornerRadiusLarge),
                 enabled = !selectionViewModel.isEmpty(),
                 onClick = {
-                    val selection = selectionViewModel.selection.toList().map { it.id }
+                    val selection = selectionViewModel.selection.toList()
                     selectionViewModel.clear()
                     val studyName = name.ifEmpty {
                         placeholderName
