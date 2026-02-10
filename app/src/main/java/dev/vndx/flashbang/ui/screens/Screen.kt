@@ -46,9 +46,8 @@ enum class Tab {
         override fun selectedIconResource() = R.drawable.baseline_auto_awesome_mosaic_32
     },
     Statistics {
-        override fun defaultScreen() = DummyScreen(Tab.Statistics)
-        override fun isDefaultScreen(screen: Screen) =
-            screen is DummyScreen && screen.dummyTab == Tab.Statistics
+        override fun defaultScreen() = StatisticsScreen()
+        override fun isDefaultScreen(screen: Screen) = screen is StatisticsScreen
 
         override fun iconResource() = R.drawable.outline_insert_chart_32
         override fun selectedIconResource() = R.drawable.baseline_insert_chart_32
