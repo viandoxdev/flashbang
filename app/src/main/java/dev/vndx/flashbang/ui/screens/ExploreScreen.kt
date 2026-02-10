@@ -41,21 +41,14 @@ import androidx.lifecycle.ViewModelStoreOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import dev.vndx.flashbang.domain.Card
 import dev.vndx.flashbang.R
-import dev.vndx.flashbang.Core
 import dev.vndx.flashbang.domain.Tag
 import dev.vndx.flashbang.ui.CardsUiState
 import dev.vndx.flashbang.ui.CardsViewModel
+import dev.vndx.flashbang.ui.ExploreViewModel
 import dev.vndx.flashbang.ui.ShimmerProvider
 import dev.vndx.flashbang.ui.Sizes
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.emptyFlow
-import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
-import uniffi.mobile.FuzzyStatus
 
 // Fake card names for skeleton / shimmer loading
 val FakeCards = listOf(
@@ -65,20 +58,6 @@ val FakeCards = listOf(
     "Lorem ipsum dolor sit amet",
     "I'm all out of ideas"
 )
-
-fun pollFuzzyFlow(core: Core) = flow {
-    var run = true
-    while (run) {
-        val status = withContext(Dispatchers.IO) { core.core.fuzzyTick() }
-        if (status != FuzzyStatus.STALE) {
-            emit(core.core.fuzzyResults())
-
-            run = status != FuzzyStatus.FINISHED
-        }
-
-        delay(50)
-    }
-}
 
 @OptIn(ExperimentalLayoutApi::class)
 @Stable
@@ -108,7 +87,7 @@ fun Modifier.clearFocusOnKeyboardDismiss(): Modifier = composed {
 }
 
 @Serializable
-open class ExploreScreen() : Screen {
+open class ExploreScreen(var savedQuery: String = "") : Screen {
     // Should be val but https://youtrack.jetbrains.com/issue/KT-38958
     @Transient
     var root: Tag? = null
@@ -166,9 +145,17 @@ open class ExploreScreen() : Screen {
         val keyboardController = LocalSoftwareKeyboardController.current
         val cardsViewModel =
             viewModel<CardsViewModel>(viewModelStoreOwner = LocalActivity.current as ViewModelStoreOwner)
-        val core = cardsViewModel.core
+        val exploreViewModel = viewModel<ExploreViewModel>()
+
         val state by cardsViewModel.uiState.collectAsState()
-        var query by remember { mutableStateOf("") }
+
+        // Initialize local query state from the saved property
+        var query by remember { mutableStateOf(savedQuery) }
+
+        // Update the viewmodel when the screen enters composition
+        LaunchedEffect(Unit) {
+            exploreViewModel.onSearchQueryChanged(savedQuery)
+        }
 
         val directories by remember(query) {
             derivedStateOf {
@@ -182,17 +169,13 @@ open class ExploreScreen() : Screen {
             }
         }
 
-        val searchResults by remember(query) {
-            if (query.isNotEmpty()) {
-                pollFuzzyFlow(core).map { list ->
-                    list.mapNotNull {
-                        state.cards[it.data()]
-                    }
-                }
-            } else {
-                emptyFlow()
+        val searchResultIds by exploreViewModel.searchResultIds.collectAsState()
+
+        val searchResults by remember(searchResultIds, state) {
+            derivedStateOf {
+                searchResultIds.mapNotNull { state.cards[it] }
             }
-        }.collectAsState(emptyList())
+        }
 
         Column(
             modifier = Modifier.Companion.fillMaxSize(),
@@ -209,9 +192,10 @@ open class ExploreScreen() : Screen {
                     SearchBarDefaults.InputField(
                         modifier = Modifier.clearFocusOnKeyboardDismiss(),
                         query = query,
-                        onQueryChange = {
-                            core.core.fuzzyInit(query)
-                            query = it
+                        onQueryChange = { newQuery ->
+                            query = newQuery
+                            savedQuery = newQuery // Persist state in the Screen object
+                            exploreViewModel.onSearchQueryChanged(newQuery)
                         },
                         onSearch = {
                             keyboardController?.hide()
