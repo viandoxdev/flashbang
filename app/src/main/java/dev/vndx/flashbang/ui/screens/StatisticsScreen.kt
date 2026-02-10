@@ -148,8 +148,7 @@ fun StatisticsContent(data: dev.vndx.flashbang.ui.StatisticsData) {
             data = countsData,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(150.dp),
-            barSpacing = 32f
+                .height(150.dp)
         )
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             Text("Young: ${data.cardCounts.young}", style = MaterialTheme.typography.bodyMedium, color = Color(0xFF69F0AE))

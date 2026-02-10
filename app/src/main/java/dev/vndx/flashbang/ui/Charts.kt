@@ -1,24 +1,23 @@
 package dev.vndx.flashbang.ui
 
-import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.unit.dp
-import java.time.LocalDate
-import java.time.format.DateTimeFormatter
-import kotlin.math.roundToInt
+import androidx.compose.ui.graphics.toArgb
+import com.patrykandpatrick.vico.compose.axis.horizontal.rememberBottomAxis
+import com.patrykandpatrick.vico.compose.axis.vertical.rememberStartAxis
+import com.patrykandpatrick.vico.compose.chart.Chart
+import com.patrykandpatrick.vico.compose.chart.column.columnChart
+import com.patrykandpatrick.vico.compose.m3.style.m3ChartStyle
+import com.patrykandpatrick.vico.compose.style.ProvideChartStyle
+import com.patrykandpatrick.vico.core.axis.AxisPosition
+import com.patrykandpatrick.vico.core.axis.formatter.AxisValueFormatter
+import com.patrykandpatrick.vico.core.chart.column.ColumnChart
+import com.patrykandpatrick.vico.core.component.shape.LineComponent
+import com.patrykandpatrick.vico.core.entry.ChartEntryModelProducer
+import com.patrykandpatrick.vico.core.entry.FloatEntry
+import com.patrykandpatrick.vico.core.entry.entryModelOf
 
 data class ChartBar(
     val label: String,
@@ -35,47 +34,33 @@ data class StackedBar(
 @Composable
 fun SimpleBarChart(
     data: List<ChartBar>,
-    modifier: Modifier = Modifier,
-    barSpacing: Float = 2f
+    modifier: Modifier = Modifier
 ) {
     if (data.isEmpty()) return
 
-    val maxValue = remember(data) { data.maxOfOrNull { it.value } ?: 0f }
-    val textColor = MaterialTheme.colorScheme.onSurface
+    val entries = data.mapIndexed { index, bar -> FloatEntry(index.toFloat(), bar.value) }
+    val chartEntryModel = entryModelOf(entries)
 
-    Box(modifier = modifier) {
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            val chartHeight = size.height
-            val chartWidth = size.width
-            val barCount = data.size
-            val barWidth = (chartWidth - (barSpacing * (barCount - 1))) / barCount
+    val horizontalAxisValueFormatter = AxisValueFormatter<AxisPosition.Horizontal.Bottom> { value, _ ->
+        data.getOrNull(value.toInt())?.label ?: ""
+    }
 
-            data.forEachIndexed { index, bar ->
-                val barHeight = if (maxValue > 0) (bar.value / maxValue) * chartHeight else 0f
-                val x = index * (barWidth + barSpacing)
-                val y = chartHeight - barHeight
-
-                drawRect(
-                    color = bar.color,
-                    topLeft = Offset(x, y),
-                    size = Size(barWidth, barHeight)
+    ProvideChartStyle(m3ChartStyle()) {
+        Chart(
+            chart = columnChart(
+                columns = listOf(
+                    LineComponent(
+                        color = (data.firstOrNull()?.color ?: MaterialTheme.colorScheme.primary).toArgb(),
+                        thicknessDp = 16f,
+                    )
                 )
-            }
-
-            // Draw axis line
-            drawLine(
-                color = textColor.copy(alpha = 0.5f),
-                start = Offset(0f, chartHeight),
-                end = Offset(chartWidth, chartHeight),
-                strokeWidth = 2f
-            )
-        }
-
-        // Max value label
-        Text(
-            text = maxValue.roundToInt().toString(),
-            style = MaterialTheme.typography.labelSmall,
-            modifier = Modifier.align(Alignment.TopStart)
+            ),
+            model = chartEntryModel,
+            startAxis = rememberStartAxis(),
+            bottomAxis = rememberBottomAxis(
+                valueFormatter = horizontalAxisValueFormatter
+            ),
+            modifier = modifier
         )
     }
 }
@@ -83,75 +68,47 @@ fun SimpleBarChart(
 @Composable
 fun StackedBarChart(
     data: List<StackedBar>,
-    modifier: Modifier = Modifier,
-    barSpacing: Float = 1f
+    modifier: Modifier = Modifier
 ) {
     if (data.isEmpty()) return
 
-    val maxValue = remember(data) {
-        data.maxOfOrNull { it.values.sum() } ?: 0f
+    // Vico expects List<List<Entry>> where outer list is series (stack layer), inner is time points.
+    val seriesCount = data.firstOrNull()?.values?.size ?: 0
+    if (seriesCount == 0) return
+
+    val chartEntries = (0 until seriesCount).map { seriesIndex ->
+        data.mapIndexed { xIndex, bar ->
+            FloatEntry(xIndex.toFloat(), bar.values.getOrElse(seriesIndex) { 0f })
+        }
     }
-    val textColor = MaterialTheme.colorScheme.onSurface
 
-    Box(modifier = modifier) {
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            val chartHeight = size.height
-            val chartWidth = size.width
-            val barCount = data.size
-            // Use minimal spacing if many bars
-            val effectiveSpacing = if (barCount > 50) 0f else barSpacing
-            val barWidth = (chartWidth - (effectiveSpacing * (barCount - 1))) / barCount.coerceAtLeast(1)
+    val chartEntryModel = entryModelOf(chartEntries)
 
-            data.forEachIndexed { index, bar ->
-                val x = index * (barWidth + effectiveSpacing)
-                var currentY = chartHeight
+    val horizontalAxisValueFormatter = AxisValueFormatter<AxisPosition.Horizontal.Bottom> { value, _ ->
+        data.getOrNull(value.toInt())?.label ?: ""
+    }
 
-                bar.values.forEachIndexed { vIndex, value ->
-                    val segmentHeight = if (maxValue > 0) (value / maxValue) * chartHeight else 0f
-                    val y = currentY - segmentHeight
-
-                    drawRect(
-                        color = bar.colors.getOrElse(vIndex) { Color.Gray },
-                        topLeft = Offset(x, y),
-                        size = Size(barWidth, segmentHeight)
-                    )
-
-                    currentY -= segmentHeight
-                }
-            }
-
-            // Axis
-            drawLine(
-                color = textColor.copy(alpha = 0.5f),
-                start = Offset(0f, chartHeight),
-                end = Offset(chartWidth, chartHeight),
-                strokeWidth = 2f
-            )
-        }
-
-        // Labels
-        Text(
-            text = maxValue.roundToInt().toString(),
-            style = MaterialTheme.typography.labelSmall,
-            modifier = Modifier.align(Alignment.TopStart)
+    // Use colors from the first bar to define series colors
+    val firstBarColors = data.first().colors
+    val columns = firstBarColors.map { color ->
+        LineComponent(
+            color = color.toArgb(),
+            thicknessDp = 16f
         )
+    }
 
-        // Start Date Label
-        if (data.isNotEmpty()) {
-            Text(
-                text = data.first().label,
-                style = MaterialTheme.typography.labelSmall,
-                modifier = Modifier.align(Alignment.BottomStart).padding(top = 4.dp)
-            )
-        }
-
-        // End Date Label
-        if (data.size > 1) {
-            Text(
-                text = data.last().label,
-                style = MaterialTheme.typography.labelSmall,
-                modifier = Modifier.align(Alignment.BottomEnd).padding(top = 4.dp)
-            )
-        }
+    ProvideChartStyle(m3ChartStyle()) {
+        Chart(
+            chart = columnChart(
+                columns = columns,
+                mergeMode = ColumnChart.MergeMode.Stack
+            ),
+            model = chartEntryModel,
+            startAxis = rememberStartAxis(),
+            bottomAxis = rememberBottomAxis(
+                valueFormatter = horizontalAxisValueFormatter
+            ),
+            modifier = modifier
+        )
     }
 }
