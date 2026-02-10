@@ -133,6 +133,9 @@ open class ExploreScreen() : Screen {
             scheduled = scheduled,
             onClick = {
                 onNavigate(CardPreviewScreen(card.id))
+            },
+            onLongClick = {
+                onNavigate(CardHistoryScreen(card.id))
             }
         )
     }
