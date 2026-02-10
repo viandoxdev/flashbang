@@ -305,7 +305,7 @@ impl CardStore {
         repo: String,
         branch: String,
         token: Option<String>,
-    ) -> Result<(Self, Vec<LoadError>), reqwest::Error> {
+    ) -> Result<(Self, Vec<LoadError>), Box<dyn std::error::Error + Send + Sync>> {
         let mut store = Storable::<CardStore>::new("store", CardStore::default);
         let api = match GithubAPI::new(repo, branch, token).await {
             Ok(api) => api,
