@@ -20,7 +20,7 @@ proto = "0.9.5"
 datastore = "1.1.7"
 protojavalite = "4.31.1"
 coil = "3.3.0"
-vico = "1.15.0"
+vico = "2.0.0-alpha.25"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version = "coreKtx" }

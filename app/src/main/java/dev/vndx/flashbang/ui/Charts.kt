@@ -2,22 +2,24 @@ package dev.vndx.flashbang.ui
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
-import com.patrykandpatrick.vico.compose.axis.horizontal.rememberBottomAxis
-import com.patrykandpatrick.vico.compose.axis.vertical.rememberStartAxis
-import com.patrykandpatrick.vico.compose.chart.Chart
-import com.patrykandpatrick.vico.compose.chart.column.columnChart
-import com.patrykandpatrick.vico.compose.m3.style.m3ChartStyle
-import com.patrykandpatrick.vico.compose.style.ProvideChartStyle
-import com.patrykandpatrick.vico.core.axis.AxisPosition
-import com.patrykandpatrick.vico.core.axis.formatter.AxisValueFormatter
-import com.patrykandpatrick.vico.core.chart.column.ColumnChart
-import com.patrykandpatrick.vico.core.component.shape.LineComponent
-import com.patrykandpatrick.vico.core.entry.ChartEntryModelProducer
-import com.patrykandpatrick.vico.core.entry.FloatEntry
-import com.patrykandpatrick.vico.core.entry.entryModelOf
+import androidx.compose.ui.unit.dp
+import com.patrykandpatrick.vico.compose.cartesian.CartesianChartHost
+import com.patrykandpatrick.vico.compose.cartesian.axis.rememberBottomAxis
+import com.patrykandpatrick.vico.compose.cartesian.axis.rememberStartAxis
+import com.patrykandpatrick.vico.compose.cartesian.layer.rememberColumnCartesianLayer
+import com.patrykandpatrick.vico.compose.cartesian.rememberCartesianChart
+import com.patrykandpatrick.vico.compose.common.component.rememberLineComponent
+import com.patrykandpatrick.vico.core.cartesian.axis.HorizontalAxis
+import com.patrykandpatrick.vico.core.cartesian.axis.VerticalAxis
+import com.patrykandpatrick.vico.core.cartesian.data.CartesianChartModelProducer
+import com.patrykandpatrick.vico.core.cartesian.data.columnSeries
+import com.patrykandpatrick.vico.core.cartesian.layer.ColumnCartesianLayer
+import com.patrykandpatrick.vico.core.common.data.ExtraStore
 
 data class ChartBar(
     val label: String,
@@ -31,6 +33,8 @@ data class StackedBar(
     val colors: List<Color>
 )
 
+val LabelKey = ExtraStore.Key<List<String>>()
+
 @Composable
 fun SimpleBarChart(
     data: List<ChartBar>,
@@ -38,31 +42,42 @@ fun SimpleBarChart(
 ) {
     if (data.isEmpty()) return
 
-    val entries = data.mapIndexed { index, bar -> FloatEntry(index.toFloat(), bar.value) }
-    val chartEntryModel = entryModelOf(entries)
+    val modelProducer = remember { CartesianChartModelProducer() }
 
-    val horizontalAxisValueFormatter = AxisValueFormatter<AxisPosition.Horizontal.Bottom> { value, _ ->
-        data.getOrNull(value.toInt())?.label ?: ""
+    LaunchedEffect(data) {
+        modelProducer.runTransaction {
+            columnSeries {
+                series(data.map { it.value })
+            }
+            extras {
+                it[LabelKey] = data.map { it.label }
+            }
+        }
     }
 
-    ProvideChartStyle(m3ChartStyle()) {
-        Chart(
-            chart = columnChart(
-                columns = listOf(
-                    LineComponent(
-                        color = (data.firstOrNull()?.color ?: MaterialTheme.colorScheme.primary).toArgb(),
-                        thicknessDp = 16f,
-                    )
+    CartesianChartHost(
+        chart = rememberCartesianChart(
+            rememberColumnCartesianLayer(
+                columnProvider = ColumnCartesianLayer.ColumnProvider.series(
+                    data.map {
+                        rememberLineComponent(
+                            color = it.color,
+                            thickness = 16.dp
+                        )
+                    }
                 )
             ),
-            model = chartEntryModel,
-            startAxis = rememberStartAxis(),
-            bottomAxis = rememberBottomAxis(
-                valueFormatter = horizontalAxisValueFormatter
-            ),
-            modifier = modifier
-        )
-    }
+            startAxis = VerticalAxis.rememberStart(),
+            bottomAxis = HorizontalAxis.rememberBottom(
+                valueFormatter = { value, chartValues, _ ->
+                    val labels = chartValues.model.extraStore.getOrNull(LabelKey)
+                    labels?.getOrNull(value.toInt()) ?: ""
+                }
+            )
+        ),
+        modelProducer = modelProducer,
+        modifier = modifier
+    )
 }
 
 @Composable
@@ -72,43 +87,48 @@ fun StackedBarChart(
 ) {
     if (data.isEmpty()) return
 
-    // Vico expects List<List<Entry>> where outer list is series (stack layer), inner is time points.
-    val seriesCount = data.firstOrNull()?.values?.size ?: 0
-    if (seriesCount == 0) return
+    val modelProducer = remember { CartesianChartModelProducer() }
 
-    val chartEntries = (0 until seriesCount).map { seriesIndex ->
-        data.mapIndexed { xIndex, bar ->
-            FloatEntry(xIndex.toFloat(), bar.values.getOrElse(seriesIndex) { 0f })
+    // Transpose data for series based model
+    val seriesCount = data.first().values.size
+    val transposedData = (0 until seriesCount).map { seriesIndex ->
+        data.map { it.values.getOrElse(seriesIndex) { 0f } }
+    }
+
+    LaunchedEffect(data) {
+        modelProducer.runTransaction {
+            columnSeries {
+                transposedData.forEach { series(it) }
+            }
+            extras {
+                it[LabelKey] = data.map { it.label }
+            }
         }
     }
 
-    val chartEntryModel = entryModelOf(chartEntries)
-
-    val horizontalAxisValueFormatter = AxisValueFormatter<AxisPosition.Horizontal.Bottom> { value, _ ->
-        data.getOrNull(value.toInt())?.label ?: ""
-    }
-
-    // Use colors from the first bar to define series colors
-    val firstBarColors = data.first().colors
-    val columns = firstBarColors.map { color ->
-        LineComponent(
-            color = color.toArgb(),
-            thicknessDp = 16f
+    val colors = data.first().colors
+    val columns = colors.map { color ->
+        rememberLineComponent(
+            color = color,
+            thickness = 16.dp
         )
     }
 
-    ProvideChartStyle(m3ChartStyle()) {
-        Chart(
-            chart = columnChart(
-                columns = columns,
-                mergeMode = ColumnChart.MergeMode.Stack
+    CartesianChartHost(
+        chart = rememberCartesianChart(
+            rememberColumnCartesianLayer(
+                columnProvider = ColumnCartesianLayer.ColumnProvider.series(columns),
+                mergeMode = { ColumnCartesianLayer.MergeMode.Stacked }
             ),
-            model = chartEntryModel,
-            startAxis = rememberStartAxis(),
-            bottomAxis = rememberBottomAxis(
-                valueFormatter = horizontalAxisValueFormatter
-            ),
-            modifier = modifier
-        )
-    }
+            startAxis = VerticalAxis.rememberStart(),
+            bottomAxis = HorizontalAxis.rememberBottom(
+                valueFormatter = { value, chartValues, _ ->
+                    val labels = chartValues.model.extraStore.getOrNull(LabelKey)
+                    labels?.getOrNull(value.toInt()) ?: ""
+                }
+            )
+        ),
+        modelProducer = modelProducer,
+        modifier = modifier
+    )
 }
