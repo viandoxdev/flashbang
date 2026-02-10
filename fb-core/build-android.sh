@@ -6,15 +6,14 @@
 # - i686-linux-android 
 # - x86_64-linux-android
 
+# I'm keeping one of these because I don't use them and I need speed
+
 # Build the dylib
 cargo build
 # Build library
 cargo ndk -o ../app/src/main/jniLibs \
     --manifest-path ./Cargo.toml \
-    -t armeabi-v7a \
     -t arm64-v8a \
-    -t x86 \
-    -t x86_64 \
     build --release
 # Generate bindgens
 mkdir -p ../app/src/main/java/dev/vndx/flashbang/rust
