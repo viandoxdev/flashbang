@@ -39,6 +39,14 @@ jobs:
         with:
           toolchain: 1.91.1
           rust-src-dir: ./fb-core
+          target: 
+            - aarch64-linux-android
+            - armv7-linux-androideabi
+            - x86_64-linux-android 
+            - i686-linux-android
+
+      - name: Install cargo-ndk
+        run: cargo install cargo-ndk
 
       - name: Change wrapper permissions
         run: chmod +x ./gradlew
