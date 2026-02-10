@@ -36,27 +36,37 @@ data class Study(
 
     companion object {
         fun buildSelectionSummary(selectedLeaves: Set<Card>): List<Item> {
-            // Set of the leaves that are contained in selectedItems
-            val draftSelectedLeaves = mutableSetOf<Item>()
-            val selectedItems = mutableSetOf<Item>()
+            if (selectedLeaves.isEmpty()) return emptyList()
 
-            fun Item.walk() {
-                if (selectedLeaves.containsAll(leafItems) && !draftSelectedLeaves.containsAll(
-                        leafItems
-                    )
-                ) {
-                    selectedItems.add(this)
-                    draftSelectedLeaves.addAll(leafItems)
-                } else {
-                    childItems.forEach { it.walk() }
+            fun collectCandidates(item: Item): List<Item> {
+                val leaves = item.leafItems
+                if (leaves.isNotEmpty() && selectedLeaves.containsAll(leaves)) {
+                    return listOf(item)
+                }
+                return item.childItems.flatMap { collectCandidates(it) }
+            }
+
+            val candidates = selectedLeaves
+                .flatMap { it.locations }
+                .map { it.root }
+                .distinct()
+                .flatMap { collectCandidates(it) }
+                .distinct()
+
+            val sortedCandidates = candidates.sortedByDescending { it.leafItems.size }
+
+            val coveredLeaves = mutableSetOf<Item>()
+            val selectedItems = mutableListOf<Item>()
+
+            for (candidate in sortedCandidates) {
+                val leaves = candidate.leafItems
+                if (leaves.any { !coveredLeaves.contains(it) }) {
+                    selectedItems.add(candidate)
+                    coveredLeaves.addAll(leaves)
                 }
             }
 
-            for (root in selectedLeaves.flatMap { it.locations }.map { it.root }.toSet()) {
-                root.walk()
-            }
-
-            return selectedItems.sortedBy { -it.leafItems.size }
+            return selectedItems
         }
 
         fun fromProto(study: dev.vndx.flashbang.Study): Study = Study(
