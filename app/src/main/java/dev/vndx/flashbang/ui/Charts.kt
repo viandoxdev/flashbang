@@ -9,16 +9,18 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.dp
 import com.patrykandpatrick.vico.compose.cartesian.CartesianChartHost
-import com.patrykandpatrick.vico.compose.cartesian.axis.rememberBottomAxis
-import com.patrykandpatrick.vico.compose.cartesian.axis.rememberStartAxis
+import com.patrykandpatrick.vico.compose.cartesian.axis.rememberBottom
+import com.patrykandpatrick.vico.compose.cartesian.axis.rememberStart
 import com.patrykandpatrick.vico.compose.cartesian.layer.rememberColumnCartesianLayer
 import com.patrykandpatrick.vico.compose.cartesian.rememberCartesianChart
 import com.patrykandpatrick.vico.compose.common.component.rememberLineComponent
+import com.patrykandpatrick.vico.compose.common.fill
 import com.patrykandpatrick.vico.core.cartesian.axis.HorizontalAxis
 import com.patrykandpatrick.vico.core.cartesian.axis.VerticalAxis
 import com.patrykandpatrick.vico.core.cartesian.data.CartesianChartModelProducer
 import com.patrykandpatrick.vico.core.cartesian.data.columnSeries
 import com.patrykandpatrick.vico.core.cartesian.layer.ColumnCartesianLayer
+import com.patrykandpatrick.vico.core.common.Fill
 import com.patrykandpatrick.vico.core.common.data.ExtraStore
 
 data class ChartBar(
@@ -49,8 +51,8 @@ fun SimpleBarChart(
             columnSeries {
                 series(data.map { it.value })
             }
-            extras {
-                it[LabelKey] = data.map { it.label }
+            extras { store ->
+                store[LabelKey] = data.map { it.label }
             }
         }
     }
@@ -61,7 +63,7 @@ fun SimpleBarChart(
                 columnProvider = ColumnCartesianLayer.ColumnProvider.series(
                     data.map {
                         rememberLineComponent(
-                            color = it.color,
+                            fill = fill(it.color),
                             thickness = 16.dp
                         )
                     }
@@ -69,7 +71,7 @@ fun SimpleBarChart(
             ),
             startAxis = VerticalAxis.rememberStart(),
             bottomAxis = HorizontalAxis.rememberBottom(
-                valueFormatter = { value, chartValues, _ ->
+                valueFormatter = { chartValues, value, _ ->
                     val labels = chartValues.model.extraStore.getOrNull(LabelKey)
                     labels?.getOrNull(value.toInt()) ?: ""
                 }
@@ -100,8 +102,8 @@ fun StackedBarChart(
             columnSeries {
                 transposedData.forEach { series(it) }
             }
-            extras {
-                it[LabelKey] = data.map { it.label }
+            extras { store ->
+                store[LabelKey] = data.map { it.label }
             }
         }
     }
@@ -109,7 +111,7 @@ fun StackedBarChart(
     val colors = data.first().colors
     val columns = colors.map { color ->
         rememberLineComponent(
-            color = color,
+            fill = fill(color),
             thickness = 16.dp
         )
     }
@@ -122,7 +124,7 @@ fun StackedBarChart(
             ),
             startAxis = VerticalAxis.rememberStart(),
             bottomAxis = HorizontalAxis.rememberBottom(
-                valueFormatter = { value, chartValues, _ ->
+                valueFormatter = { chartValues, value, _ ->
                     val labels = chartValues.model.extraStore.getOrNull(LabelKey)
                     labels?.getOrNull(value.toInt()) ?: ""
                 }
