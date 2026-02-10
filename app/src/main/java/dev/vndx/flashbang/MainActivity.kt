@@ -48,6 +48,7 @@ import dev.vndx.flashbang.ui.screens.Screen
 import dev.vndx.flashbang.ui.screens.SelectionScreen
 import dev.vndx.flashbang.ui.screens.SettingsScreen
 import dev.vndx.flashbang.ui.screens.SourcePreviewScreen
+import dev.vndx.flashbang.ui.screens.StatisticsScreen
 import dev.vndx.flashbang.ui.screens.StudiesScreen
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.map
@@ -175,6 +176,9 @@ class MainActivity() : ComponentActivity() {
                                             composeScreen(it)
                                         }
                                         entry<DummyScreen> {
+                                            composeScreen(it)
+                                        }
+                                        entry<StatisticsScreen> {
                                             composeScreen(it)
                                         }
                                         entry<CreateStudyScreen> {
