@@ -13,6 +13,7 @@ import dev.vndx.flashbang.Rating
 import dev.vndx.flashbang.TAG
 import dev.vndx.flashbang.domain.Card
 import dev.vndx.flashbang.domain.Study
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -137,6 +138,93 @@ class StudiesViewModel @Inject constructor(
                         ).setRating(rating).build()
                     ).build()
             )
+        }
+    }
+
+    fun clearCardHistory(card: Card?, cardId: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            recalculateState(cardId, emptyList(), card)
+        }
+    }
+
+    fun deleteCardReview(card: Card?, cardId: String, reviewTimestamp: Long) {
+        val state = studiesState.value
+        if (state !is StudiesState.Success) return
+
+        val memoryState = state.proto.memoryMap[cardId] ?: return
+        val reviews = memoryState.reviewsList.filter { it.timestamp != reviewTimestamp }
+        viewModelScope.launch(Dispatchers.IO) {
+            recalculateState(cardId, reviews, card)
+        }
+    }
+
+    private fun recalculateState(cardId: String, reviews: List<CardReview>, card: Card?) {
+        // Sort reviews by timestamp
+        val sortedReviews = reviews.sortedBy { it.timestamp }
+
+        var currentState: SchedulerMemoryState? = null
+        var lastReviewTime: LocalDateTime? = null
+        var lastDelay: Float = 0f
+
+        for (review in sortedReviews) {
+            val currentReviewTime = LocalDateTime.ofEpochSecond(review.timestamp, 0, ZoneOffset.UTC)
+
+            // Calculate days elapsed since last review
+            // For the first review, daysElapsed is usually treated as 0 or time since creation.
+            // Here we use 0 if it's the first review.
+            val daysElapsed = lastReviewTime?.until(currentReviewTime, ChronoUnit.DAYS)?.toInt()?.coerceAtLeast(0)?.toUInt() ?: 0u
+
+            try {
+                val nextStates = core.core.schedulerNextState(currentState, daysElapsed)
+
+                val itemState = when (review.rating) {
+                    Rating.RATING_HARD -> nextStates.hard
+                    Rating.RATING_GOOD -> nextStates.good
+                    Rating.RATING_EASY -> nextStates.easy
+                    else -> nextStates.again
+                }
+
+                currentState = itemState.state
+                lastDelay = itemState.delay
+                lastReviewTime = currentReviewTime
+
+            } catch (e: Exception) {
+                Log.e(TAG, "Error calculating next state for card $cardId: $e")
+                // If error, maybe stop replaying or continue with best effort?
+                // For now, let's break to avoid inconsistent state accumulating
+                break
+            }
+        }
+
+        edit {
+            if (sortedReviews.isEmpty()) {
+                removeMemory(cardId)
+            } else {
+                val builder = if (containsMemory(cardId)) getMemoryOrThrow(cardId).toBuilder() else CardMemoryState.newBuilder()
+                builder.clearReviews()
+                builder.addAllReviews(sortedReviews)
+
+                if (currentState != null) {
+                    builder.setStability(currentState.stability)
+                    builder.setDifficulty(currentState.difficulty)
+                } else {
+                    // Reset if no reviews or cleared (though isEmpty check handles this usually)
+                    builder.clearStability()
+                    builder.clearDifficulty()
+                }
+
+                putMemory(cardId, builder.build())
+            }
+        }
+
+        // Update Card object if provided
+        card?.let {
+            if (lastReviewTime != null) {
+                val scheduledFor = lastReviewTime!!.plusHours((lastDelay * 24f).toLong())
+                it.scheduledFor = scheduledFor.toLocalDate()
+            } else {
+                it.scheduledFor = null
+            }
         }
     }
 }
