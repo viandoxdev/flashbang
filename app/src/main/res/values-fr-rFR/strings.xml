@@ -58,4 +58,9 @@
     <string name="rating_good">Bien</string>
     <string name="rating_hard">Difficile</string>
     <string name="rating_again">Encore</string>
+    <string name="study_finished">Étude terminée!</string>
+    <string name="study_duration">Durée: %1$s</string>
+    <string name="study_cards_reviewed">Cartes étudiées: %1$d</string>
+    <string name="study_no_cards">Pas de cartes étudiées.</string>
+    <string name="back_to_home">Retour à l\'accueil</string>
 </resources>
