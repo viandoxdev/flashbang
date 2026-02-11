@@ -51,6 +51,12 @@ jobs:
         working-directory: ./fb-core
         run: ./build-android.sh
 
+      - name: Install debug singing keystore
+        env: 
+          ENCODED_KEY: ${{ secrets.DEBUG_SIGNING_KEY }}
+        shell: bash
+        run: base64 -di <<< "$ENCODED_KEY" > "./debug.keystore"
+
       # Run Tests Build
       - name: Run gradle tests
         run: ./gradlew test

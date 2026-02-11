@@ -28,6 +28,12 @@ android {
     namespace = "dev.vndx.flashbang"
     compileSdk = 36
 
+    signingConfigs {
+        getByName("debug") {
+            storeFile = file("../debug.keystore")
+        }
+    }
+
     defaultConfig {
         applicationId = "dev.vndx.flashbang"
         minSdk = 35

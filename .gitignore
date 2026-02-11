@@ -14,3 +14,5 @@
 .cxx
 local.properties
 .kotlin
+debug.keystore
+debug.keystore.encoded
