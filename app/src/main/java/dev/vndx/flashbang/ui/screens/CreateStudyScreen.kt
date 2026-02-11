@@ -209,6 +209,7 @@ class CreateStudyScreen : Screen {
 
                     val study = studiesViewModel.createStudy(selection, studyName)
 
+                    onBack(1)
                     onNavigate(ReviewScreen(study))
                 },
             ) {
