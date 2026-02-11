@@ -52,7 +52,14 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
 import dev.vndx.flashbang.R
+import dev.vndx.flashbang.Rating
 import dev.vndx.flashbang.data.dateTimeFormatter
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -640,6 +647,119 @@ fun SettingsAction(title: String, subtitle: String? = null, onClick: () -> Unit 
             horizontalArrangement = Arrangement.spacedBy(Sizes.spacingMedium)
         ) {
             TitleSubtitleStack(title = title, subtitle = subtitle)
+        }
+    }
+}
+@Composable
+fun DonutChart(
+    ratings: Map<Rating, Int>,
+    modifier: Modifier = Modifier
+) {
+    val total = ratings.values.sum().toFloat()
+    if (total == 0f) return
+
+    val colors = mapOf(
+        Rating.RATING_AGAIN to MaterialTheme.colorScheme.inverseSurface,
+        Rating.RATING_HARD to MaterialTheme.colorScheme.error,
+        Rating.RATING_GOOD to MaterialTheme.colorScheme.tertiary,
+        Rating.RATING_EASY to MaterialTheme.colorScheme.primary
+    )
+
+    Canvas(modifier = modifier) {
+        val strokeWidth = size.minDimension / 4
+        val radius = (size.minDimension - strokeWidth) / 2
+        val center = Offset(size.width / 2, size.height / 2)
+        val topLeft = Offset(center.x - radius, center.y - radius)
+        val rectSize = Size(radius * 2, radius * 2)
+
+        var startAngle = -90f
+
+        // Order: Again -> Hard -> Good -> Easy
+        val orderedRatings = listOf(
+            Rating.RATING_AGAIN,
+            Rating.RATING_HARD,
+            Rating.RATING_GOOD,
+            Rating.RATING_EASY
+        )
+
+        for (rating in orderedRatings) {
+            val count = ratings[rating] ?: 0
+            if (count > 0) {
+                val sweepAngle = (count / total) * 360f
+                val color = colors[rating] ?: Color.Gray
+
+                drawArc(
+                    color = color,
+                    startAngle = startAngle,
+                    sweepAngle = sweepAngle,
+                    useCenter = false,
+                    topLeft = topLeft,
+                    size = rectSize,
+                    style = Stroke(width = strokeWidth)
+                )
+
+                startAngle += sweepAngle
+            }
+        }
+    }
+}
+
+@Composable
+fun FinishedStudy(
+    name: String,
+    description: String,
+    date: LocalDate,
+    ratingCounts: Map<Rating, Int>,
+) {
+    val preferencesState by viewModel<SettingsViewModel>().preferences.collectAsState()
+    val preferences = preferencesState.preferences
+    val relative = true
+
+    OutlinedCard(
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(Sizes.spacingMedium),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(Sizes.spacingMedium)
+        ) {
+            IconDisplay(
+                painter = painterResource(R.drawable.outline_note_stack_32)
+            )
+
+            Box(modifier = Modifier.weight(1f)) {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(Sizes.spacingTiny)
+                ) {
+                    Text(
+                        text = name,
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    Text(
+                        text = description,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.secondary
+                    )
+                    Text(
+                         text = formatRelativeDate(
+                            date, relative, preferences.dateFormat.dateTimeFormatter()
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.secondary
+                    )
+                }
+            }
+
+            DonutChart(
+                ratings = ratingCounts,
+                modifier = Modifier
+                    .padding(0.dp, 0.dp, Sizes.spacingMedium)
+                    .size(40.dp)
+            )
         }
     }
 }

@@ -1,18 +1,28 @@
 package dev.vndx.flashbang.ui.screens
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -20,6 +30,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import dev.vndx.flashbang.R
 import dev.vndx.flashbang.ui.CardsUiState
 import dev.vndx.flashbang.ui.CardsViewModel
+import dev.vndx.flashbang.ui.FinishedStudy
 import dev.vndx.flashbang.ui.ShimmerProvider
 import dev.vndx.flashbang.ui.Sizes
 import dev.vndx.flashbang.ui.StudiesViewModel
@@ -54,6 +65,13 @@ class StudiesScreen() : Screen {
         val state by viewModel.studiesState.collectAsState()
 
         val studies = state.studies.values.toList()
+        val ongoingStudies = studies.filter { !it.finished }
+        val finishedStudies = studies.filter { it.finished }
+
+        var finishedStudiesExpanded by remember { mutableStateOf(false) }
+        val rotationState by animateFloatAsState(
+            targetValue = if (finishedStudiesExpanded) 90f else 0f, label = "rotation"
+        )
 
         if (cardsState is CardsUiState.Loading) {
             ShimmerProvider {
@@ -84,7 +102,7 @@ class StudiesScreen() : Screen {
                     .padding(Sizes.spacingMedium, 0.dp),
                 verticalArrangement = Arrangement.spacedBy(Sizes.spacingMedium)
             ) {
-                items(studies, { it.id }) { study ->
+                items(ongoingStudies, { it.id }) { study ->
                     Study(
                         name = study.name,
                         cards = study.selection.size,
@@ -103,6 +121,43 @@ class StudiesScreen() : Screen {
                             onNavigate(ReviewScreen(study))
                         }
                     )
+                }
+
+                if (finishedStudies.isNotEmpty()) {
+                    item {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { finishedStudiesExpanded = !finishedStudiesExpanded }
+                                .padding(Sizes.spacingMedium),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Finished Studies",
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                            Icon(
+                                painter = painterResource(R.drawable.baseline_arrow_forward_32),
+                                contentDescription = null,
+                                modifier = Modifier.rotate(rotationState)
+                            )
+                        }
+                    }
+
+                    if (finishedStudiesExpanded) {
+                        items(finishedStudies, { it.id }) { study ->
+                            FinishedStudy(
+                                name = study.name,
+                                description = stringResource(
+                                    R.string.selected,
+                                    study.getOrBuildSelectionSummary(cardsState)
+                                        .joinToString(", ") { it.itemName }),
+                                date = study.timestamp.toLocalDate(),
+                                ratingCounts = study.reviews.values.groupingBy { it }.eachCount()
+                            )
+                        }
+                    }
                 }
             }
         }
