@@ -131,7 +131,7 @@ class ReviewScreen(val study: Study) : Screen {
                         studiesViewModel.updateStudy(study, rating, card)
                     }
                     if (page >= pagesCount - 1) {
-                        // TODO: End of review screen
+                        studiesViewModel.finalizeStudy(study)
                         onBack(1)
                     } else {
                         page += 1

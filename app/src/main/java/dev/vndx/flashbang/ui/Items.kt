@@ -757,7 +757,7 @@ fun FinishedStudy(
             DonutChart(
                 ratings = ratingCounts,
                 modifier = Modifier
-                    .padding(0.dp, 0.dp, Sizes.spacingMedium)
+                    .padding(end = Sizes.spacingMedium)
                     .size(40.dp)
             )
         }
