@@ -54,6 +54,8 @@ class ExploreViewModel @Inject constructor(
         core.core.fuzzyInit(query)
 
         var run = true
+        var lastResults: List<String> = emptyList()
+
         while (run) {
             val status = core.core.fuzzyTick()
             if (status != FuzzyStatus.STALE) {
@@ -61,7 +63,10 @@ class ExploreViewModel @Inject constructor(
 
                 val results = rawResults.map { it.data() }
 
-                emit(results)
+                if (results != lastResults) {
+                    emit(results)
+                    lastResults = results
+                }
 
                 run = status != FuzzyStatus.FINISHED
             }

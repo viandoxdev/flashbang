@@ -7,8 +7,10 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.vndx.flashbang.Rating
 import dev.vndx.flashbang.Studies
 import dev.vndx.flashbang.CardMemoryState
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import java.time.LocalDate
@@ -60,6 +62,7 @@ class StatisticsViewModel @Inject constructor(
             val stats = calculateStatistics(studies)
             StatisticsState.Success(stats)
         }
+        .flowOn(Dispatchers.Default)
         .stateIn(
             viewModelScope,
             SharingStarted.WhileSubscribed(5000),
