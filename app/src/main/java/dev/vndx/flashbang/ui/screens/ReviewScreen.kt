@@ -50,8 +50,10 @@ import dev.vndx.flashbang.ui.CardsViewModel
 import dev.vndx.flashbang.ui.SettingsViewModel
 import dev.vndx.flashbang.ui.Sizes
 import dev.vndx.flashbang.ui.StudiesState
+import androidx.compose.runtime.produceState
 import dev.vndx.flashbang.ui.StudiesViewModel
-import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import uniffi.mobile.SourceConfig
 import java.nio.ByteBuffer
@@ -155,35 +157,50 @@ class ReviewScreen(val study: Study) : Screen {
             ) {
                 val color = MaterialTheme.colorScheme.onBackground
                 val context = LocalContext.current
-                val pagesFlow = remember(maxWidth, density, preferences) {
-                    flow {
-                        val pages = cardsViewModel.core.compileCards(
-                            cardSources, SourceConfig(
-                                maxWidth.value.roundToInt().toUInt(),
-                                preferences.preferences.cardFontSize.toUInt(),
-                                ((color.value shr 32) and 0xFFFFFFuL).toUInt()
-                            )
-                        ).filterIndexed { index, _ -> index > 0 }.map {
-                            ImageRequest.Builder(context)
-                                .data(ByteBuffer.wrap(it.svg().toByteArray())).decoderFactory(
-                                    SvgDecoder.Factory()
-                                ).build()
+                val pagesState = produceState<List<ImageRequest>?>(
+                    initialValue = null,
+                    cardSources,
+                    maxWidth,
+                    preferences
+                ) {
+                    if (cardSources.isNotEmpty()) {
+                        value = null
+                        withContext(Dispatchers.IO) {
+                            val result = cardsViewModel.core.compileCards(
+                                cardSources, SourceConfig(
+                                    maxWidth.value.roundToInt().toUInt(),
+                                    preferences.preferences.cardFontSize.toUInt(),
+                                    ((color.value shr 32) and 0xFFFFFFuL).toUInt()
+                                )
+                            ).filterIndexed { index, _ -> index > 0 }.map {
+                                ImageRequest.Builder(context)
+                                    .data(ByteBuffer.wrap(it.svg().toByteArray())).decoderFactory(
+                                        SvgDecoder.Factory()
+                                    ).build()
+                            }
+                            value = result
                         }
-                        emit(pages)
+                    } else {
+                        value = emptyList()
                     }
                 }
-                val pages by pagesFlow.collectAsState(emptyList())
 
-                AsyncImage(
-                    modifier = Modifier
-                        .requiredWidth(this@BoxWithConstraints.maxWidth)
-                        .verticalScroll(rememberScrollState())
-                        .align(Alignment.Center)
-                        .padding(bottom = Sizes.spacingMedium),
-                    contentScale = ContentScale.FillWidth,
-                    model = pages.getOrNull(page),
-                    contentDescription = null,
-                )
+                val pages = pagesState.value
+
+                if (pages == null) {
+                    Loading()
+                } else {
+                    AsyncImage(
+                        modifier = Modifier
+                            .requiredWidth(this@BoxWithConstraints.maxWidth)
+                            .verticalScroll(rememberScrollState())
+                            .align(Alignment.Center)
+                            .padding(bottom = Sizes.spacingMedium),
+                        contentScale = ContentScale.FillWidth,
+                        model = pages.getOrNull(page),
+                        contentDescription = null,
+                    )
+                }
             }
 
             Row(
