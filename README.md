@@ -48,3 +48,7 @@ Flashbang uses a hybrid architecture:
 
 3.  **Run the Android App:**
     Open the project in Android Studio and run the `app` configuration on your device or emulator.
+
+## CI/CD
+
+The project includes a GitHub Actions workflow (`.github/workflows/build_apk.yml`) that automatically builds debug APKs on push. You can find the generated artifacts in the Actions tab of the repository.
