@@ -1,7 +1,0 @@
-[unstable]
-build-std = ["panic_abort", "std"]
-
-[target.wasm32-unknown-unknown]
-rustflags = '-C target-feature=+atomics,+bulk-memory'
-[target.aarch64-linux-android]
-rustflags = '-C target-feature=+atomics,+bulk-memory'

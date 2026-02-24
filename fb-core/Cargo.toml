@@ -1,0 +1,32 @@
+[package]
+name = "fb-core"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+crate-type = ["cdylib"]
+name = "mobile"
+
+[dependencies]
+uniffi = { version = "0.29", features = ["cli"] }
+smallvec = { version = "1.13", features = ["serde"] }
+slotmap = "1.0"
+itertools = "0.14"
+parking_lot = "0.12"
+serde = "1.0.163"
+nom = "8.0"
+reqwest = { version = "0.12.12", default-features = false, features = ["blocking", "json", "rustls-tls", "charset", "http2"] }
+typst = "0.14"
+typst-svg = "0.14"
+typst-kit = { version = "0.14", default-features = false, features = [
+    "embed-fonts",
+] }
+walkdir = "2.5"
+flate2 = "1.1"
+tar = "0.4"
+pollster = "0.4"
+log = "0.4"
+android_logger = { version = "0.15", features = ["android-api-30"] }
+nucleo = "0.5"
+fsrs = "5.1"
+thiserror = "2.0"

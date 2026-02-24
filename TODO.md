@@ -1,7 +1,0 @@
-- Streak
-- Pre render (render 3-4 cards ahead to svg)
-- Better stats
-- Find a way to bind back button on mobile
-- Make selection more responsive (when in deep paths)
-- i18n
-- cards management (forget / reset card, ...)

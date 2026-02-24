@@ -1,0 +1,35 @@
+syntax = "proto3";
+
+option java_package = "dev.vndx.flashbang";
+option java_multiple_files = true;
+
+enum Theme {
+  THEME_UNSPECIFIED = 0;
+  THEME_SYSTEM = 1;
+  THEME_DARK = 2;
+  THEME_LIGHT = 3;
+}
+
+enum DateFormat {
+  DATE_FORMAT_UNSPECIFIED = 0;
+  DATE_FORMAT_SLASH_D_M_YY = 1;
+  DATE_FORMAT_SLASH_MM_DD_YY = 2;
+  DATE_FORMAT_SLASH_DD_MM_YY = 3;
+  DATE_FORMAT_DASH_YYYY_MM_DD = 4;
+  DATE_FORMAT_SPACE_DD_MMM_YYYY = 5;
+  DATE_FORMAT_SPACE_MMM_DD_YYYY = 6;
+}
+
+message Preferences {
+  // Github repository (user/repo) string
+  string repository = 1;
+  // Branch for the cards repository
+  string branch = 2;
+  // Github token used for API requests
+  string github_token = 3;
+  Theme theme = 4;
+  bool use_dynamic_colors = 5;
+  DateFormat date_format = 6;
+
+  int32 card_font_size = 7;
+}

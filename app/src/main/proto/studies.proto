@@ -1,0 +1,42 @@
+syntax = "proto3";
+
+option java_package = "dev.vndx.flashbang";
+option java_multiple_files = true;
+
+enum Rating {
+  RATING_UNSPECIFIED = 0;
+  RATING_AGAIN = 1;
+  RATING_HARD = 2;
+  RATING_GOOD = 3;
+  RATING_EASY = 4;
+}
+
+message CardReview {
+  Rating rating = 1;
+  uint64 timestamp = 2;
+}
+
+message CardMemoryState {
+  float stability = 1;
+  float difficulty = 2;
+  repeated CardReview reviews = 3;
+  uint64 due_date = 4;
+}
+
+message Study {
+  uint64 id = 1;
+  string name = 2;
+  uint64 timestamp = 3;
+  repeated string selection = 4;
+  map<string, Rating> reviews = 5;
+  bool finished = 6;
+}
+
+message Studies {
+  uint64 ids = 1;
+  repeated float fsrs_parameters = 2;
+
+  map<string, CardMemoryState> memory = 3;
+
+  map<uint64, Study> studies = 4;
+}
