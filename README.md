@@ -1,24 +1,24 @@
 # Flashbang
 
-Flashbang is a modern, open-source flashcard application for Android that leverages the power of Rust for its core logic and Jetpack Compose for a beautiful, responsive UI.
+Flashbang is an open-source flashcard application for Android, built as a personal alternative to Anki. It uses Rust for core logic and Jetpack Compose for the UI.
 
 ## Features
 
-- **Typst-based Cards:** Render rich text, mathematical equations, and complex layouts using the Typst typesetting system.
-- **FSRS Scheduler:** Implements the Free Spaced Repetition Scheduler (FSRS) algorithm to optimize your learning efficiency.
-- **GitHub Sync:** Load and sync your card decks directly from GitHub repositories.
-- **Fuzzy Search:** Quickly find specific cards or concepts with powerful fuzzy search capabilities.
-- **Statistics & Visualization:** Track your progress with detailed charts and statistics powered by Vico.
-- **Material 3 Design:** A modern, intuitive interface built with Jetpack Compose and Material 3.
-- **Offline First:** Your data is stored locally for fast access anytime, anywhere.
+- **Typst-based Cards:** Renders rich text and mathematical equations using the Typst typesetting system.
+- **FSRS Scheduler:** Implements the Free Spaced Repetition Scheduler (FSRS) algorithm.
+- **GitHub Sync:** Loads and syncs card decks from GitHub repositories.
+- **Fuzzy Search:** Finds specific cards using fuzzy search.
+- **Statistics & Visualization:** Tracks progress with charts and statistics powered by Vico.
+- **Material 3 Design:** Built with Jetpack Compose and Material 3 components.
+- **Offline First:** Data is stored locally on the device.
 
 ## Architecture
 
-Flashbang follows a hybrid architecture to combine performance with modern Android development practices:
+Flashbang uses a hybrid architecture:
 
-- **Frontend (Android):** Written in Kotlin using Jetpack Compose for UI, Hilt for dependency injection, and Navigation 3 for navigation.
+- **Frontend (Android):** Written in Kotlin using Jetpack Compose, Hilt, and Navigation 3.
 - **Backend (Rust):** The core logic (scheduler, card parsing, search, GitHub sync) resides in the `fb-core` Rust crate.
-- **Communication:** [UniFFI](https://github.com/mozilla/uniffi-rs) bridges the gap, generating type-safe Kotlin bindings for the Rust library.
+- **Communication:** [UniFFI](https://github.com/mozilla/uniffi-rs) generates Kotlin bindings for the Rust library.
 
 ## Building
 
