@@ -24,18 +24,10 @@ Flashbang uses a hybrid architecture:
 
 ### Prerequisites
 
-Ensure you have the following installed:
-
-- **Rust Toolchain:** Install Rust via [rustup](https://rustup.rs/).
-- **Android Studio:** With the Android SDK and NDK installed.
-- **cargo-ndk:** Install with `cargo install cargo-ndk`.
-- **uniffi-bindgen:** Install with `cargo install uniffi-bindgen`.
-
-You will also need to add the Android targets to your Rust installation:
-
-```bash
-rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android
-```
+- Rust Toolchain
+- Android Studio with SDK and NDK
+- `cargo-ndk`
+- Android Rust targets (`aarch64-linux-android`, `armv7-linux-androideabi`, `i686-linux-android`, `x86_64-linux-android`)
 
 ### Steps
 
