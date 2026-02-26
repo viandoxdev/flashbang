@@ -193,6 +193,47 @@ impl WorldState {
     }
 }
 
+fn load_from_cache(core: &Core) -> Result<LoadResult, CoreError> {
+    use crate::cards::CardCore;
+    use rayon::prelude::*;
+
+    // Collect entries first to enable parallel iteration
+    let entries: Vec<_> = WalkDir::new(core.world.cache_path.join("workdir"))
+        .into_iter()
+        .filter_map(|e| e.ok())
+        .filter(|e| e.path().extension().and_then(|ext| ext.to_str()) == Some("typ"))
+        .enumerate()
+        .collect();
+
+    let results: Vec<Result<Vec<CardInfo>, LoadError>> = entries
+        .into_par_iter()
+        .map(|(index, entry)| {
+            let path_str = entry.path().to_string_lossy().to_string();
+            let content = std::fs::read_to_string(entry.path()).map_err(|e| LoadError {
+                error: e.to_string(),
+                path: path_str.clone(),
+            })?;
+
+            core.parse(index as u64, &content).map_err(|e| LoadError {
+                error: e.to_string(),
+                path: path_str,
+            })
+        })
+        .collect();
+
+    let mut cards = Vec::new();
+    let mut errors = Vec::new();
+
+    for result in results {
+        match result {
+            Ok(mut c) => cards.append(&mut c),
+            Err(e) => errors.push(e),
+        }
+    }
+
+    Ok(LoadResult { cards, errors })
+}
+
 pub trait WorldCore {
     fn load_from_github(
         &self,
@@ -226,30 +267,7 @@ impl WorldCore for Core {
         let latest_sha = self.world.latest_sha();
 
         if latest_sha == api.sha {
-            let mut res = Vec::new();
-
-            // We can use cached data
-            for (index, entry) in WalkDir::new(self.world.cache_path.join("workdir"))
-                .into_iter()
-                .filter_map(|e| e.ok())
-                .filter(|e| e.path().extension().and_then(|ext| ext.to_str()) == Some("typ"))
-                .enumerate()
-            {
-                let content = std::fs::read_to_string(entry.path())?;
-                match self.parse(index as u64, &content) {
-                    Ok(mut items) => {
-                        res.append(&mut items);
-                    }
-                    Err(e) => {
-                        errors.push(LoadError {
-                            error: e.to_string(),
-                            path: entry.path().to_string_lossy().to_string(),
-                        });
-                    }
-                };
-            }
-
-            return Ok(LoadResult { cards: res, errors });
+            return load_from_cache(self);
         }
 
         // shas differ: we need to updated our cache
