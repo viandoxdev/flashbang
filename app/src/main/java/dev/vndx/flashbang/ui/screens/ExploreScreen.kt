@@ -231,7 +231,7 @@ open class ExploreScreen(var savedQuery: String = "") : Screen {
                                 .fillMaxSize()
                                 .padding(0.dp, Sizes.spacingSmall, 0.dp)
                         ) {
-                            items(FakeCards) { name ->
+                            items(FakeCards, key = { it }) { name ->
                                 // We use this one here since I don't have a CardHandle to give
                                 dev.vndx.flashbang.ui.Flashcard(
                                     name = name,
@@ -249,11 +249,11 @@ open class ExploreScreen(var savedQuery: String = "") : Screen {
                             .padding(0.dp, Sizes.spacingSmall, 0.dp)
                     ) {
                         if (query.isEmpty()) {
-                            items(directories) { dirTag ->
+                            items(directories, key = { "tag:${it.fullPath}" }) { dirTag ->
                                 Directory(
                                     tag = dirTag, onClick = { onNavigate(enter(dirTag)) })
                             }
-                            items(cards) { card ->
+                            items(cards, key = { "card:${it.id}" }) { card ->
                                 Flashcard(
                                     card = card,
                                     scheduled = false,
@@ -261,7 +261,7 @@ open class ExploreScreen(var savedQuery: String = "") : Screen {
                                 )
                             }
                         } else {
-                            items(searchResults) { card ->
+                            items(searchResults, key = { it.id }) { card ->
                                 Flashcard(
                                     card = card,
                                     scheduled = false,
