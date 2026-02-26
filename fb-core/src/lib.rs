@@ -91,6 +91,9 @@ impl Core {
     fn fuzzyAddItem(&self, item: Arc<dyn FuzzyItem>) {
         FuzzyCore::add_item(self, item);
     }
+    fn fuzzyAddItems(&self, items: Vec<Arc<dyn FuzzyItem>>) {
+        FuzzyCore::add_items(self, items);
+    }
     fn fuzzyReset(&self) {
         FuzzyCore::reset(self);
     }

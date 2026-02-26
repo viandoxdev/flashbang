@@ -50,7 +50,7 @@ data class CardsData(
                 tag
             }
 
-            val cards = load.cards.associate {
+            val cards = load.cards.map {
                 val locations = it.locations.map { path -> tagOf(path) }
                 // TODO: Get rid of the whole header id thing on rust side, its unnecessary
                 val card = Card(
@@ -72,12 +72,12 @@ data class CardsData(
                     tag.addCard(card)
                 }
 
-                core.core.fuzzyAddItem(card)
-
-                it.id to card
+                card
             }
 
-            return CardsData(cards, rootTags.toList())
+            core.core.fuzzyAddItems(cards)
+
+            return CardsData(cards.associateBy { it.id }, rootTags.toList())
         }
     }
 }
