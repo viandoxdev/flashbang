@@ -157,35 +157,7 @@ class ReviewScreen(val study: Study) : Screen {
             ) {
                 val color = MaterialTheme.colorScheme.onBackground
                 val context = LocalContext.current
-                val pagesState = produceState<List<ImageRequest>?>(
-                    initialValue = null,
-                    cardSources,
-                    maxWidth,
-                    preferences
-                ) {
-                    if (cardSources.isNotEmpty()) {
-                        value = null
-                        withContext(Dispatchers.IO) {
-                            val result = cardsViewModel.core.compileCards(
-                                cardSources, SourceConfig(
-                                    maxWidth.value.roundToInt().toUInt(),
-                                    preferences.preferences.cardFontSize.toUInt(),
-                                    ((color.value shr 32) and 0xFFFFFFuL).toUInt()
-                                )
-                            ).filterIndexed { index, _ -> index > 0 }.map {
-                                ImageRequest.Builder(context)
-                                    .data(ByteBuffer.wrap(it.svg().toByteArray())).decoderFactory(
-                                        SvgDecoder.Factory()
-                                    ).build()
-                            }
-                            value = result
-                        }
-                    } else {
-                        value = emptyList()
-                    }
-                }
-
-                val pages = pagesState.value
+val pages = emptyList<ImageRequest>()
 
                 if (pages == null) {
                     Loading()
