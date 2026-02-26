@@ -76,21 +76,11 @@ fun RowScope.ReviewButton(@StringRes string: Int, color: Color, onClick: () -> U
 
 @Serializable
 class ReviewScreen(val study: Study) : Screen {
-    init {
-        Log.w(TAG, "New review screen for " + study.id.toString())
-        Log.w(TAG, study.reviews.toString())
-    }
-
     override fun tab(): Tab = Tab.Study
 
     // Pseudo random yet consistent sort of the cards
     val cards = study.selection.filter {
-        if (!study.reviews.contains(it)) {
-            return@filter true
-        } else {
-            Log.w(TAG, "Card $it has already been reviewed")
-            return@filter false
-        }
+        !study.reviews.contains(it)
     }.sortedBy { (it.hashCode() + study.id).hashCode() }
 
     @Composable
@@ -127,9 +117,7 @@ class ReviewScreen(val study: Study) : Screen {
         val ratingButton: @Composable RowScope.(Rating, Int, Color) -> Unit =
             { rating, resource, color ->
                 ReviewButton(resource, color) {
-                    Log.w(TAG, card?.id ?: "No card")
                     if (card != null) {
-                        Log.w(TAG, "Reviewed card ${card.id}")
                         studiesViewModel.updateStudy(study, rating, card)
                     }
                     if (page >= pagesCount - 1) {
