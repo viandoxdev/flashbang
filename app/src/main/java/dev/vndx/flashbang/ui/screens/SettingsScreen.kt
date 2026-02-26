@@ -184,8 +184,9 @@ open class SettingsScreen : Screen {
             item {
                 SettingsTextField(
                     title = stringResource(R.string.token),
-                    subtitle = preferences.githubToken,
+                    subtitle = if (preferences.githubToken.isNotEmpty()) "••••••••" else stringResource(R.string.not_set),
                     value = preferences.githubToken,
+                    isSecret = true,
                     onValueChange = { vm.update { setGithubToken(it) } }
                 )
             }
