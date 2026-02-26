@@ -88,7 +88,7 @@ impl FuzzyCore for Core {
     }
 
     fn add_items(&self, items: Vec<AnyFuzzy>) {
-        let mut injector = self.fuzzy.injector.lock();
+        let injector = self.fuzzy.injector.lock();
         for item in items {
             let key = item.key();
             injector.push(item, |_, row| row[0] = key.into());
