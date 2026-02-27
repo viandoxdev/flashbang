@@ -684,12 +684,15 @@ fun DonutChart(
     val total = ratings.values.sum().toFloat()
     if (total == 0f) return
 
-    val colors = mapOf(
-        Rating.RATING_AGAIN to MaterialTheme.colorScheme.inverseSurface,
-        Rating.RATING_HARD to MaterialTheme.colorScheme.error,
-        Rating.RATING_GOOD to MaterialTheme.colorScheme.tertiary,
-        Rating.RATING_EASY to MaterialTheme.colorScheme.primary
-    )
+    val colorScheme = MaterialTheme.colorScheme
+    val colors = remember(colorScheme) {
+        mapOf(
+            Rating.RATING_AGAIN to colorScheme.inverseSurface,
+            Rating.RATING_HARD to colorScheme.error,
+            Rating.RATING_GOOD to colorScheme.tertiary,
+            Rating.RATING_EASY to colorScheme.primary
+        )
+    }
 
     Canvas(modifier = modifier) {
         val strokeWidth = size.minDimension / 4
