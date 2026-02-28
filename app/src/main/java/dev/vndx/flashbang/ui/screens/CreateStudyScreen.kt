@@ -169,7 +169,13 @@ class CreateStudyScreen : Screen {
                     )
                 } else {
                     LazyColumn {
-                        items(summary) { item ->
+                        items(summary, key = { item ->
+                            when (item) {
+                                is Card -> "card:${item.id}"
+                                is Tag -> "tag:${item.fullPath}"
+                                else -> item.itemName
+                            }
+                        }) { item ->
                             when (item) {
                                 is Card -> {
                                     Flashcard(

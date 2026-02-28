@@ -147,6 +147,9 @@ class StudiesScreen() : Screen {
 
                     if (finishedStudiesExpanded) {
                         items(finishedStudies, { it.id }) { study ->
+                            val ratingCounts = remember(study.reviews) {
+                                study.reviews.values.groupingBy { it }.eachCount()
+                            }
                             FinishedStudy(
                                 name = study.name,
                                 description = stringResource(
@@ -154,7 +157,7 @@ class StudiesScreen() : Screen {
                                     study.getOrBuildSelectionSummary(cardsState)
                                         .joinToString(", ") { it.itemName }),
                                 date = study.timestamp.toLocalDate(),
-                                ratingCounts = study.reviews.values.groupingBy { it }.eachCount()
+                                ratingCounts = ratingCounts
                             )
                         }
                     }

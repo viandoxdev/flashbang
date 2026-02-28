@@ -19,6 +19,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.IconButton
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedCard
@@ -560,10 +565,15 @@ fun <T> SettingsSelect(
 
 @Composable
 fun SettingsTextField(
-    title: String, value: String, subtitle: String? = null, onValueChange: (String) -> Unit = {}
+    title: String,
+    value: String,
+    subtitle: String? = null,
+    isSecret: Boolean = false,
+    onValueChange: (String) -> Unit = {}
 ) {
     var dialogOpen by remember { mutableStateOf(false) }
     var text by remember(value) { mutableStateOf(value) }
+    var passwordVisible by remember { mutableStateOf(false) }
 
     SettingDialogItem(
         dialogOpen = dialogOpen,
@@ -590,9 +600,25 @@ fun SettingsTextField(
                     horizontalArrangement = Arrangement.spacedBy(Sizes.spacingMedium)
                 ) {
                     TextField(
-                        value = text, onValueChange = {
-                            text = it
-                        })
+                        value = text,
+                        onValueChange = { text = it },
+                        visualTransformation = if (isSecret && !passwordVisible) PasswordVisualTransformation() else VisualTransformation.None,
+                        keyboardOptions = KeyboardOptions(keyboardType = if (isSecret) KeyboardType.Password else KeyboardType.Text),
+                        trailingIcon = if (isSecret) {
+                            {
+                                val image = if (passwordVisible)
+                                    painterResource(R.drawable.outline_visibility_24)
+                                else
+                                    painterResource(R.drawable.outline_visibility_off_24)
+
+                                val description = if (passwordVisible) "Hide password" else "Show password"
+
+                                IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                                    Icon(painter = image, contentDescription = description)
+                                }
+                            }
+                        } else null
+                    )
                 }
 
                 Row(
@@ -658,12 +684,15 @@ fun DonutChart(
     val total = ratings.values.sum().toFloat()
     if (total == 0f) return
 
-    val colors = mapOf(
-        Rating.RATING_AGAIN to MaterialTheme.colorScheme.inverseSurface,
-        Rating.RATING_HARD to MaterialTheme.colorScheme.error,
-        Rating.RATING_GOOD to MaterialTheme.colorScheme.tertiary,
-        Rating.RATING_EASY to MaterialTheme.colorScheme.primary
-    )
+    val colorScheme = MaterialTheme.colorScheme
+    val colors = remember(colorScheme) {
+        mapOf(
+            Rating.RATING_AGAIN to colorScheme.inverseSurface,
+            Rating.RATING_HARD to colorScheme.error,
+            Rating.RATING_GOOD to colorScheme.tertiary,
+            Rating.RATING_EASY to colorScheme.primary
+        )
+    }
 
     Canvas(modifier = modifier) {
         val strokeWidth = size.minDimension / 4
