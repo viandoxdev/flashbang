@@ -10,14 +10,16 @@ import java.io.InputStream
 import java.io.OutputStream
 import java.time.format.DateTimeFormatter
 
-fun DateFormat.dateTimeFormatter(): DateTimeFormatter = when (this) {
-    DateFormat.DATE_FORMAT_SLASH_DD_MM_YY -> DateTimeFormatter.ofPattern("dd/MM/uu")
-    DateFormat.DATE_FORMAT_SLASH_MM_DD_YY -> DateTimeFormatter.ofPattern("MM/dd/uu")
-    DateFormat.DATE_FORMAT_DASH_YYYY_MM_DD -> DateTimeFormatter.ofPattern("uuuu-MM-dd")
-    DateFormat.DATE_FORMAT_SPACE_DD_MMM_YYYY -> DateTimeFormatter.ofPattern("dd MMM uuuu")
-    DateFormat.DATE_FORMAT_SPACE_MMM_DD_YYYY -> DateTimeFormatter.ofPattern("MMM dd, uuuu")
-    else -> DateTimeFormatter.ofPattern("d/M/uu")
-}
+private val FORMATTERS = mapOf(
+    DateFormat.DATE_FORMAT_SLASH_DD_MM_YY to DateTimeFormatter.ofPattern("dd/MM/uu"),
+    DateFormat.DATE_FORMAT_SLASH_MM_DD_YY to DateTimeFormatter.ofPattern("MM/dd/uu"),
+    DateFormat.DATE_FORMAT_DASH_YYYY_MM_DD to DateTimeFormatter.ofPattern("uuuu-MM-dd"),
+    DateFormat.DATE_FORMAT_SPACE_DD_MMM_YYYY to DateTimeFormatter.ofPattern("dd MMM uuuu"),
+    DateFormat.DATE_FORMAT_SPACE_MMM_DD_YYYY to DateTimeFormatter.ofPattern("MMM dd, uuuu")
+)
+private val DEFAULT_FORMATTER = DateTimeFormatter.ofPattern("d/M/uu")
+
+fun DateFormat.dateTimeFormatter(): DateTimeFormatter = FORMATTERS[this] ?: DEFAULT_FORMATTER
 
 object PreferencesSerializer : Serializer<Preferences> {
     override val defaultValue: Preferences
