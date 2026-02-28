@@ -260,7 +260,6 @@ impl WorldCore for Core {
         token: Option<String>,
     ) -> Result<LoadResult, CoreError> {
         let api = GithubAPI::new(repo, branch, token)?;
-
         let latest_sha = self.world.latest_sha();
 
         if latest_sha == api.sha {
