@@ -54,6 +54,7 @@ pub trait FuzzyCore {
     fn tick(&self) -> FuzzyStatus;
     fn results(&self) -> Vec<AnyFuzzy>;
     fn add_item(&self, item: AnyFuzzy);
+    fn add_items(&self, items: Vec<AnyFuzzy>);
     fn reset(&self);
 }
 
@@ -84,6 +85,14 @@ impl FuzzyCore for Core {
     fn add_item(&self, item: AnyFuzzy) {
         let key = item.key();
         self.fuzzy.injector.lock().push(item, |_, row| row[0] = key.into());
+    }
+
+    fn add_items(&self, items: Vec<AnyFuzzy>) {
+        let injector = self.fuzzy.injector.lock();
+        for item in items {
+            let key = item.key();
+            injector.push(item, |_, row| row[0] = key.into());
+        }
     }
 
     fn reset(&self) {

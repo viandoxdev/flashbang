@@ -2,7 +2,7 @@
 
 use reqwest::{
     blocking::{Client, RequestBuilder},
-    header::{ACCEPT, AUTHORIZATION, USER_AGENT},
+    header::{AUTHORIZATION, HeaderValue, USER_AGENT},
 };
 use serde::Deserialize;
 
@@ -16,18 +16,7 @@ struct BranchResponse {
     commit: Commit,
 }
 
-#[derive(Deserialize)]
-pub struct TreeItem {
-    pub path: String,
-    pub sha: String,
-    #[serde(rename = "type")]
-    pub kind: String,
-}
 
-#[derive(Deserialize)]
-struct TreeResponse {
-    tree: Vec<TreeItem>,
-}
 
 pub struct GithubAPI {
     client: Client,
@@ -59,7 +48,9 @@ impl GithubAPI {
             .header(USER_AGENT, &username);
 
         if let Some(token) = token.as_ref() {
-            req = req.header(AUTHORIZATION, format!("Bearer {token}"));
+            let mut val = HeaderValue::from_str(&format!("Bearer {token}")).unwrap();
+            val.set_sensitive(true);
+            req = req.header(AUTHORIZATION, val);
         }
 
         let res = req.send()?.json::<BranchResponse>()?;
@@ -80,31 +71,52 @@ impl GithubAPI {
             .header(USER_AGENT, &self.username)
             .header("X-GitHub-Api-Version", GithubAPI::API_VERSION);
         if let Some(token) = self.token.as_ref() {
-            req.header(AUTHORIZATION, format!("Bearer {token}"))
+            let mut val = HeaderValue::from_str(&format!("Bearer {token}")).unwrap();
+            val.set_sensitive(true);
+            req.header(AUTHORIZATION, val)
         } else {
             req
         }
     }
 
-    pub fn get_items(&self) -> Result<Vec<TreeItem>, reqwest::Error> {
-        Ok(self
-            .get(format!(
-                "https://api.github.com/repos/{}/git/trees/{}?recursive=1",
-                self.repo, self.sha
-            ))
-            .send()?
-            .json::<TreeResponse>()?
-            .tree)
+
+    pub fn get_tarball(&self) -> Result<reqwest::blocking::Response, reqwest::Error> {
+        self.get(format!(
+            "https://api.github.com/repos/{}/tarball/{}",
+            self.repo, self.sha
+        ))
+        .send()
     }
 
-    pub fn get_blob(&self, sha: impl AsRef<str>) -> Result<String, reqwest::Error> {
-        let sha = sha.as_ref();
-        self.get(format!(
-            "https://api.github.com/repos/{}/git/blobs/{sha}",
-            self.repo
-        ))
-        .header(ACCEPT, "application/vnd.github.raw+json")
-        .send()?
-        .text()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_authorization_header_is_sensitive() {
+        let client = Client::new();
+        let api = GithubAPI {
+            client,
+            repo: "owner/repo".to_string(),
+            token: Some("secret_token".to_string()),
+            username: "owner".to_string(),
+            sha: "dummy_sha".to_string(),
+        };
+
+        let req = api
+            .get("https://example.com".to_string())
+            .build()
+            .expect("Failed to build request");
+
+        if let Some(auth_header) = req.headers().get(AUTHORIZATION) {
+            assert!(
+                auth_header.is_sensitive(),
+                "Authorization header should be marked sensitive"
+            );
+        } else {
+            panic!("Authorization header missing");
+        }
     }
 }

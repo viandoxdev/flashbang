@@ -63,4 +63,5 @@
     <string name="study_cards_reviewed">Cartes étudiées: %1$d</string>
     <string name="study_no_cards">Pas de cartes étudiées.</string>
     <string name="back_to_home">Retour à l\'accueil</string>
+    <string name="not_set">Pas configuré</string>
 </resources>

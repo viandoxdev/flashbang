@@ -106,7 +106,7 @@ data class CardHistoryScreen(val cardId: String) : Screen {
                 modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.spacedBy(Sizes.spacingSmall)
             ) {
-                items(reviews) { review ->
+                items(reviews, key = { it.timestamp }) { review ->
                     val date = LocalDateTime.ofEpochSecond(review.timestamp, 0, ZoneOffset.UTC)
                     val formatter = DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT)
 
