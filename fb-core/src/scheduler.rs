@@ -1,9 +1,6 @@
 use std::sync::{Arc, atomic::AtomicU32};
 
-use fsrs::{
-    CombinedProgressState, FSRS, FSRSItem, FSRSReview, ItemState,
-    MemoryState, NextStates,
-};
+use fsrs::{CombinedProgressState, FSRS, FSRSItem, FSRSReview, ItemState, MemoryState, NextStates};
 use itertools::Itertools;
 use parking_lot::Mutex;
 
@@ -57,7 +54,11 @@ impl SchedulerState {
 pub trait SchedulerCore {
     fn set_parameters(&self, parameters: &[f32]) -> Result<(), CoreError>;
     fn set_retention(&self, value: f32);
-    fn next_state(&self, state: Option<MemoryState>, days_elapsed: u32) -> Result<NextStates, CoreError>;
+    fn next_state(
+        &self,
+        state: Option<MemoryState>,
+        days_elapsed: u32,
+    ) -> Result<NextStates, CoreError>;
     fn compute_parameters(
         &self,
         items: Vec<FSRSItem>,
@@ -73,7 +74,11 @@ impl SchedulerCore for Core {
         *self.scheduler.fsrs.lock() = FSRS::new(Some(parameters))?;
         Ok(())
     }
-    fn next_state(&self, state: Option<MemoryState>, days_elapsed: u32) -> Result<NextStates, CoreError> {
+    fn next_state(
+        &self,
+        state: Option<MemoryState>,
+        days_elapsed: u32,
+    ) -> Result<NextStates, CoreError> {
         Ok(self.scheduler.fsrs.lock().next_states(
             state,
             self.scheduler.get_retention(),

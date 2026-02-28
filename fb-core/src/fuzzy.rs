@@ -1,7 +1,10 @@
 use std::sync::Arc;
 
 use itertools::Itertools;
-use nucleo::{pattern::{CaseMatching, Normalization}, Injector, Nucleo};
+use nucleo::{
+    Injector, Nucleo,
+    pattern::{CaseMatching, Normalization},
+};
 use parking_lot::Mutex;
 
 use crate::Core;
@@ -73,7 +76,8 @@ impl FuzzyCore for Core {
     }
 
     fn results(&self) -> Vec<AnyFuzzy> {
-        self.fuzzy.nucleo
+        self.fuzzy
+            .nucleo
             .lock()
             .snapshot()
             .matched_items(..)
@@ -83,7 +87,10 @@ impl FuzzyCore for Core {
 
     fn add_item(&self, item: AnyFuzzy) {
         let key = item.key();
-        self.fuzzy.injector.lock().push(item, |_, row| row[0] = key.into());
+        self.fuzzy
+            .injector
+            .lock()
+            .push(item, |_, row| row[0] = key.into());
     }
 
     fn reset(&self) {

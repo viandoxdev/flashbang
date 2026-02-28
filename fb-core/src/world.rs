@@ -7,11 +7,18 @@ use std::{
     sync::{Arc, OnceLock},
 };
 
+use futures::stream::{self, StreamExt, TryStreamExt};
 use itertools::Itertools;
 use parking_lot::Mutex;
 use reqwest::{StatusCode, blocking::Client};
 use typst::{
-    Library, LibraryExt, World as TypstWorld, diag::{FileError, FileResult}, foundations::Bytes, layout::{Page, PagedDocument}, syntax::{FileId, Source, VirtualPath, package::PackageSpec}, text::{Font, FontBook}, utils::LazyHash
+    Library, LibraryExt, World as TypstWorld,
+    diag::{FileError, FileResult},
+    foundations::Bytes,
+    layout::{Page, PagedDocument},
+    syntax::{FileId, Source, VirtualPath, package::PackageSpec},
+    text::{Font, FontBook},
+    utils::LazyHash,
 };
 use typst_kit::fonts::{FontSearcher, FontSlot as TypstFontSlot};
 use walkdir::WalkDir;
@@ -105,8 +112,8 @@ impl FileSlot {
 
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct LoadError {
-    error: String,
-    path: String,
+    pub error: String,
+    pub path: String,
 }
 
 impl Display for LoadError {
@@ -127,8 +134,8 @@ impl Error for LoadError {}
 
 #[derive(uniffi::Record)]
 pub struct LoadResult {
-    cards: Vec<CardInfo>,
-    errors: Vec<LoadError>,
+    pub cards: Vec<CardInfo>,
+    pub errors: Vec<LoadError>,
 }
 
 pub struct WorldState {
@@ -194,7 +201,7 @@ impl WorldState {
 }
 
 pub trait WorldCore {
-    fn load_from_github(
+    async fn load_from_github(
         &self,
         repo: String,
         branch: String,
@@ -212,7 +219,7 @@ pub trait WorldCore {
 
 impl WorldCore for Core {
     /// Return type is like that because we can get an error and recover
-    fn load_from_github(
+    async fn load_from_github(
         &self,
         repo: String,
         branch: String,
@@ -220,8 +227,8 @@ impl WorldCore for Core {
     ) -> Result<LoadResult, CoreError> {
         use crate::cards::CardCore;
 
-        let api = GithubAPI::new(repo, branch, token)?;
-        let mut errors = Vec::new();
+        let api = GithubAPI::new(repo, branch, token).await?;
+        let errors = Mutex::new(Vec::new());
 
         let latest_sha = self.world.latest_sha();
 
@@ -241,7 +248,7 @@ impl WorldCore for Core {
                         res.append(&mut items);
                     }
                     Err(e) => {
-                        errors.push(LoadError {
+                        errors.lock().push(LoadError {
                             error: e.to_string(),
                             path: entry.path().to_string_lossy().to_string(),
                         });
@@ -249,12 +256,14 @@ impl WorldCore for Core {
                 };
             }
 
-            return Ok(LoadResult { cards: res, errors });
+            return Ok(LoadResult {
+                cards: res,
+                errors: errors.into_inner(),
+            });
         }
 
         // shas differ: we need to updated our cache
 
-        let mut res = Vec::new();
         let workdir = self.world.cache_path.join("workdir");
 
         // Clear (workdir) cache
@@ -262,7 +271,7 @@ impl WorldCore for Core {
             std::fs::remove_dir_all(&workdir)?;
         }
 
-        let items = api.get_items()?.into_iter().filter(|item| {
+        let items = api.get_items().await?.into_iter().filter(|item| {
             item.kind == "blob"
                 && Path::new(&item.path)
                     .extension()
@@ -270,31 +279,52 @@ impl WorldCore for Core {
                     .unwrap_or_default()
         });
 
-        for (index, item) in items.enumerate() {
-            let content = api.get_blob(&item.sha)?;
+        let res = Mutex::new(Vec::new());
 
-            match self.parse(index as u64, &content) {
-                Ok(mut items) => {
-                    res.append(&mut items);
-                }
-                Err(e) => {
-                    errors.push(LoadError {
-                        error: e.to_string(),
-                        path: item.path.clone(),
-                    });
-                }
-            };
+        let res_ref = &res;
+        let errors_ref = &errors;
 
-            let file_id = FileId::new(None, VirtualPath::new(&item.path));
-            self.world
-                .write_file(content, self.world.get_physical_path(&file_id))?;
-        }
+        // Concurrent download and processing
+        // We buffer 10 concurrent requests
+        stream::iter(items.enumerate())
+            .map(|(index, item)| {
+                let api = &api;
+                async move {
+                    let content = api.get_blob(&item.sha).await?;
+                    Ok::<_, CoreError>((index, item, content))
+                }
+            })
+            .buffer_unordered(10)
+            .try_for_each(|res_item| async move {
+                let (index, item, content) = res_item;
+                match self.parse(index as u64, &content) {
+                    Ok(mut items) => {
+                        res_ref.lock().append(&mut items);
+                    }
+                    Err(e) => {
+                        errors_ref.lock().push(LoadError {
+                            error: e.to_string(),
+                            path: item.path.clone(),
+                        });
+                    }
+                };
+
+                let file_id = FileId::new(None, VirtualPath::new(&item.path));
+                self.world
+                    .write_file(content, self.world.get_physical_path(&file_id))?;
+
+                Ok::<_, CoreError>(())
+            })
+            .await?;
 
         self.world.save_sha(api.sha)?;
 
         self.world.new_directories.lock().push(workdir);
 
-        Ok(LoadResult { cards: res, errors })
+        Ok(LoadResult {
+            cards: res.into_inner(),
+            errors: errors.into_inner(),
+        })
     }
 
     fn prepare_source(

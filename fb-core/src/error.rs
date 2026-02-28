@@ -50,4 +50,3 @@ impl From<fsrs::FSRSError> for CoreError {
         }
     }
 }
-

@@ -9,8 +9,8 @@ use std::usize;
 
 use itertools::Itertools;
 
-use crate::error::CoreError;
 use crate::Core;
+use crate::error::CoreError;
 
 #[derive(uniffi::Object)]
 pub struct HeaderInfoInner {
@@ -143,7 +143,11 @@ impl CardCore for Core {
 
         writeln!(&mut w, "{CARDS_INTERNAL}")?;
         writeln!(&mut w, "#set page(width: {}pt)", config.page_width)?;
-        writeln!(&mut w, "#let _colors = (text: rgb(\"#{:06X}\"))", config.text_color)?;
+        writeln!(
+            &mut w,
+            "#let _colors = (text: rgb(\"#{:06X}\"))",
+            config.text_color
+        )?;
         writeln!(&mut w, "#let _sizes = (text: {}pt)", config.text_size)?;
         writeln!(&mut w, "#set text(size: _sizes.text, fill: _colors.text)")?;
         writeln!(&mut w, "#[")?;
@@ -157,7 +161,6 @@ impl CardCore for Core {
                 if let Some(header) = (&current_header).as_ref() {
                     writeln!(&mut w, "{}", header)?;
                 }
-
             }
 
             write!(&mut w, "#card(\"{}\", \"{}\", (", card.id(), card.name())?;
@@ -271,4 +274,3 @@ impl CardCore for Core {
             .collect_vec())
     }
 }
-

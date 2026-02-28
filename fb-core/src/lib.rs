@@ -52,13 +52,13 @@ impl Core {
     fn _new(cache_path: String) -> Result<Self, CoreError> {
         Self::new(PathBuf::from(&cache_path))
     }
-    fn worldLoadFromGithub(
+    async fn worldLoadFromGithub(
         &self,
         repo: String,
         branch: String,
         token: Option<String>,
     ) -> Result<LoadResult, CoreError> {
-        WorldCore::load_from_github(self, repo, branch, token)
+        WorldCore::load_from_github(self, repo, branch, token).await
     }
     fn worldInspectSource(&self) -> Option<String> {
         WorldCore::inspect_source(self)
@@ -138,4 +138,41 @@ pub fn rust_setup_logger() {
             )
             .with_tag("fb-core"),
     );
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+    use std::time::Instant;
+
+    #[test]
+    #[ignore]
+    fn benchmark_load_github() {
+        let cache_dir = PathBuf::from("./bench_cache");
+        if cache_dir.exists() {
+            std::fs::remove_dir_all(&cache_dir).unwrap();
+        }
+        std::fs::create_dir_all(&cache_dir).unwrap();
+        let core = Core::new(cache_dir).unwrap();
+
+        let start = Instant::now();
+
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let res = rt.block_on(async {
+            core.worldLoadFromGithub(
+                "typst-community/typst-physics".to_string(),
+                "main".to_string(),
+                None,
+            )
+            .await
+        });
+
+        let duration = start.elapsed();
+        println!("Load finished in {:?}", duration);
+        match res {
+            Ok(_) => println!("Loaded successfully"),
+            Err(e) => println!("Error: {:?}", e),
+        }
+    }
 }

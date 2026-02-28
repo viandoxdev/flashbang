@@ -1,7 +1,7 @@
 //! Thin github api wrapper for the 3 calls I need to do
 
 use reqwest::{
-    blocking::{Client, RequestBuilder},
+    Client, RequestBuilder,
     header::{ACCEPT, AUTHORIZATION, USER_AGENT},
 };
 use serde::Deserialize;
@@ -39,7 +39,7 @@ pub struct GithubAPI {
 
 impl GithubAPI {
     const API_VERSION: &'static str = "2022-11-28";
-    pub fn new(
+    pub async fn new(
         repo: String,
         branch: String,
         token: Option<String>,
@@ -62,7 +62,7 @@ impl GithubAPI {
             req = req.header(AUTHORIZATION, format!("Bearer {token}"));
         }
 
-        let res = req.send()?.json::<BranchResponse>()?;
+        let res = req.send().await?.json::<BranchResponse>().await?;
 
         Ok(Self {
             client,
@@ -86,25 +86,29 @@ impl GithubAPI {
         }
     }
 
-    pub fn get_items(&self) -> Result<Vec<TreeItem>, reqwest::Error> {
+    pub async fn get_items(&self) -> Result<Vec<TreeItem>, reqwest::Error> {
         Ok(self
             .get(format!(
                 "https://api.github.com/repos/{}/git/trees/{}?recursive=1",
                 self.repo, self.sha
             ))
-            .send()?
-            .json::<TreeResponse>()?
+            .send()
+            .await?
+            .json::<TreeResponse>()
+            .await?
             .tree)
     }
 
-    pub fn get_blob(&self, sha: impl AsRef<str>) -> Result<String, reqwest::Error> {
+    pub async fn get_blob(&self, sha: impl AsRef<str>) -> Result<String, reqwest::Error> {
         let sha = sha.as_ref();
         self.get(format!(
             "https://api.github.com/repos/{}/git/blobs/{sha}",
             self.repo
         ))
         .header(ACCEPT, "application/vnd.github.raw+json")
-        .send()?
+        .send()
+        .await?
         .text()
+        .await
     }
 }
