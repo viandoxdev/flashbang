@@ -224,55 +224,46 @@ impl WorldCore for Core {
         let mut errors = Vec::new();
 
         let latest_sha = self.world.latest_sha();
-
-        if latest_sha == api.sha {
-            let mut res = Vec::new();
-
-            // We can use cached data
-            for (index, entry) in WalkDir::new(self.world.cache_path.join("workdir"))
-                .into_iter()
-                .filter_map(|e| e.ok())
-                .filter(|e| e.path().extension().and_then(|ext| ext.to_str()) == Some("typ"))
-                .enumerate()
-            {
-                let content = std::fs::read_to_string(entry.path())?;
-                match self.parse(index as u64, &content) {
-                    Ok(mut items) => {
-                        res.append(&mut items);
-                    }
-                    Err(e) => {
-                        errors.push(LoadError {
-                            error: e.to_string(),
-                            path: entry.path().to_string_lossy().to_string(),
-                        });
-                    }
-                };
-            }
-
-            return Ok(LoadResult { cards: res, errors });
-        }
-
-        // shas differ: we need to updated our cache
-
-        let mut res = Vec::new();
         let workdir = self.world.cache_path.join("workdir");
 
-        // Clear (workdir) cache
-        if std::fs::exists(&workdir).unwrap_or_default() {
-            std::fs::remove_dir_all(&workdir)?;
+        if latest_sha != api.sha {
+            // shas differ: we need to update our cache
+
+            // Clear (workdir) cache
+            if std::fs::exists(&workdir).unwrap_or_default() {
+                std::fs::remove_dir_all(&workdir)?;
+            }
+            std::fs::create_dir_all(&workdir)?;
+
+            let resp = api.get_tarball()?;
+            let decompressed = flate2::read::GzDecoder::new(resp);
+            let mut archive = tar::Archive::new(decompressed);
+
+            for entry in archive.entries()? {
+                let mut entry = entry?;
+                let path = entry.path()?.to_path_buf();
+                // Strip first component (root directory of the archive)
+                let components: Vec<_> = path.components().collect();
+                if components.len() > 1 {
+                    let relative_path: PathBuf = components[1..].iter().collect();
+                    entry.unpack(workdir.join(relative_path))?;
+                }
+            }
+
+            self.world.save_sha(api.sha)?;
+            self.world.new_directories.lock().push(workdir.clone());
         }
 
-        let items = api.get_items()?.into_iter().filter(|item| {
-            item.kind == "blob"
-                && Path::new(&item.path)
-                    .extension()
-                    .map(|ext| ext == "typ")
-                    .unwrap_or_default()
-        });
+        let mut res = Vec::new();
 
-        for (index, item) in items.enumerate() {
-            let content = api.get_blob(&item.sha)?;
-
+        // Use cached data (or just downloaded)
+        for (index, entry) in WalkDir::new(&workdir)
+            .into_iter()
+            .filter_map(|e| e.ok())
+            .filter(|e| e.path().extension().and_then(|ext| ext.to_str()) == Some("typ"))
+            .enumerate()
+        {
+            let content = std::fs::read_to_string(entry.path())?;
             match self.parse(index as u64, &content) {
                 Ok(mut items) => {
                     res.append(&mut items);
@@ -280,23 +271,14 @@ impl WorldCore for Core {
                 Err(e) => {
                     errors.push(LoadError {
                         error: e.to_string(),
-                        path: item.path.clone(),
+                        path: entry.path().to_string_lossy().to_string(),
                     });
                 }
             };
-
-            let file_id = FileId::new(None, VirtualPath::new(&item.path));
-            self.world
-                .write_file(content, self.world.get_physical_path(&file_id))?;
         }
-
-        self.world.save_sha(api.sha)?;
-
-        self.world.new_directories.lock().push(workdir);
 
         Ok(LoadResult { cards: res, errors })
     }
-
     fn prepare_source(
         &self,
         cards: impl IntoIterator<Item = Arc<dyn CardSource>>,

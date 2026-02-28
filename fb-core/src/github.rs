@@ -2,7 +2,7 @@
 
 use reqwest::{
     blocking::{Client, RequestBuilder},
-    header::{ACCEPT, AUTHORIZATION, HeaderValue, USER_AGENT},
+    header::{AUTHORIZATION, HeaderValue, USER_AGENT},
 };
 use serde::Deserialize;
 
@@ -16,18 +16,7 @@ struct BranchResponse {
     commit: Commit,
 }
 
-#[derive(Deserialize)]
-pub struct TreeItem {
-    pub path: String,
-    pub sha: String,
-    #[serde(rename = "type")]
-    pub kind: String,
-}
 
-#[derive(Deserialize)]
-struct TreeResponse {
-    tree: Vec<TreeItem>,
-}
 
 pub struct GithubAPI {
     client: Client,
@@ -90,27 +79,15 @@ impl GithubAPI {
         }
     }
 
-    pub fn get_items(&self) -> Result<Vec<TreeItem>, reqwest::Error> {
-        Ok(self
-            .get(format!(
-                "https://api.github.com/repos/{}/git/trees/{}?recursive=1",
-                self.repo, self.sha
-            ))
-            .send()?
-            .json::<TreeResponse>()?
-            .tree)
+
+    pub fn get_tarball(&self) -> Result<reqwest::blocking::Response, reqwest::Error> {
+        self.get(format!(
+            "https://api.github.com/repos/{}/tarball/{}",
+            self.repo, self.sha
+        ))
+        .send()
     }
 
-    pub fn get_blob(&self, sha: impl AsRef<str>) -> Result<String, reqwest::Error> {
-        let sha = sha.as_ref();
-        self.get(format!(
-            "https://api.github.com/repos/{}/git/blobs/{sha}",
-            self.repo
-        ))
-        .header(ACCEPT, "application/vnd.github.raw+json")
-        .send()?
-        .text()
-    }
 }
 
 #[cfg(test)]
