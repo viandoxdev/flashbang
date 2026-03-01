@@ -228,17 +228,17 @@ fn load_from_cache(core: &Core) -> Result<LoadResult, CoreError> {
         })
         .collect();
 
-    let mut res = Vec::new();
+    let mut cards = Vec::new();
     let mut errors = Vec::new();
 
     for result in results {
         match result {
-            Ok(mut items) => res.append(&mut items),
+            Ok(mut items) => cards.append(&mut items),
             Err(e) => errors.push(e),
         }
     }
 
-    Ok(LoadResult { cards: res, errors })
+    Ok(LoadResult { cards, errors })
 }
 
 pub trait WorldCore {
@@ -287,25 +287,17 @@ impl WorldCore for Core {
             let resp = api.get_tarball().await?.bytes().await?;
             let cursor = Cursor::new(resp);
             let decompressed = flate2::read::GzDecoder::new(cursor);
-            let mut archive = tar::Archive::new(decompressed);
-
-            // Since it's doing sync I/O parsing in tar, we can do it directly. The tokio runtime provides spawn_blocking if it becomes an issue.
-            // But we already offload `worldLoadFromGithub` to Dispatchers.IO in Kotlin.
+            let mut archive = tar::Archive::new(decompressed)?;
+            
             for entry in archive.entries()? {
                 let mut entry = entry?;
                 let path = entry.path()?.to_path_buf();
-
-                // Keep only `.typ` files. The first component is the generated repo dir
-                let Some("typ") = path.extension().and_then(|e| e.to_str()) else {
-                    continue;
-                };
-
-                let path: PathBuf = path.components().skip(1).collect();
-                let full_path = workdir.join(path);
-                if let Some(parent) = full_path.parent() {
-                    std::fs::create_dir_all(parent)?;
+                // Strip first component (root directory of the archive)
+                let components: Vec<_> = path.components().collect();
+                if components.len() > 1 {
+                    let relative_path: PathBuf = components[1..].iter().collect();
+                    entry.unpack(workdir.join(relative_path))?;
                 }
-                entry.unpack(full_path)?;
             }
 
             self.world.save_sha(api.sha)?;
@@ -314,7 +306,6 @@ impl WorldCore for Core {
 
         load_from_cache(self)
     }
-
     fn prepare_source(
         &self,
         cards: impl IntoIterator<Item = Arc<dyn CardSource>>,

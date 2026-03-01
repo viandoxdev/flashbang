@@ -102,6 +102,14 @@ impl FuzzyCore for Core {
         }
     }
 
+    fn add_items(&self, items: Vec<AnyFuzzy>) {
+        let injector = self.fuzzy.injector.lock();
+        for item in items {
+            let key = item.key();
+            injector.push(item, |_, row| row[0] = key.into());
+        }
+    }
+
     fn reset(&self) {
         self.fuzzy.nucleo.lock().restart(true);
         *self.fuzzy.injector.lock() = self.fuzzy.nucleo.lock().injector();
