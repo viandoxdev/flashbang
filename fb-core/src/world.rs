@@ -3,6 +3,7 @@ use std::{
     error::Error,
     fmt::{Debug, Display},
     fs,
+    io::Cursor,
     path::{Path, PathBuf},
     sync::{Arc, OnceLock},
 };
@@ -11,7 +12,13 @@ use itertools::Itertools;
 use parking_lot::Mutex;
 use reqwest::{StatusCode, blocking::Client};
 use typst::{
-    Library, LibraryExt, World as TypstWorld, diag::{FileError, FileResult}, foundations::Bytes, layout::{Page, PagedDocument}, syntax::{FileId, Source, VirtualPath, package::PackageSpec}, text::{Font, FontBook}, utils::LazyHash
+    Library, LibraryExt, World as TypstWorld,
+    diag::{FileError, FileResult},
+    foundations::Bytes,
+    layout::{Page, PagedDocument},
+    syntax::{FileId, Source, VirtualPath, package::PackageSpec},
+    text::{Font, FontBook},
+    utils::LazyHash,
 };
 use typst_kit::fonts::{FontSearcher, FontSlot as TypstFontSlot};
 use walkdir::WalkDir;
@@ -105,8 +112,8 @@ impl FileSlot {
 
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct LoadError {
-    error: String,
-    path: String,
+    pub error: String,
+    pub path: String,
 }
 
 impl Display for LoadError {
@@ -127,8 +134,8 @@ impl Error for LoadError {}
 
 #[derive(uniffi::Record)]
 pub struct LoadResult {
-    cards: Vec<CardInfo>,
-    errors: Vec<LoadError>,
+    pub cards: Vec<CardInfo>,
+    pub errors: Vec<LoadError>,
 }
 
 pub struct WorldState {
@@ -226,7 +233,7 @@ fn load_from_cache(core: &Core) -> Result<LoadResult, CoreError> {
 
     for result in results {
         match result {
-            Ok(mut c) => cards.append(&mut c),
+            Ok(mut items) => cards.append(&mut items),
             Err(e) => errors.push(e),
         }
     }
@@ -235,7 +242,7 @@ fn load_from_cache(core: &Core) -> Result<LoadResult, CoreError> {
 }
 
 pub trait WorldCore {
-    fn load_from_github(
+    async fn load_from_github(
         &self,
         repo: String,
         branch: String,
@@ -253,13 +260,13 @@ pub trait WorldCore {
 
 impl WorldCore for Core {
     /// Return type is like that because we can get an error and recover
-    fn load_from_github(
+    async fn load_from_github(
         &self,
         repo: String,
         branch: String,
         token: Option<String>,
     ) -> Result<LoadResult, CoreError> {
-        let api = GithubAPI::new(repo, branch, token)?;
+        let api = GithubAPI::new(repo, branch, token).await?;
         let latest_sha = self.world.latest_sha();
 
         if latest_sha == api.sha {
@@ -277,8 +284,9 @@ impl WorldCore for Core {
             }
             std::fs::create_dir_all(&workdir)?;
 
-            let resp = api.get_tarball()?;
-            let decompressed = flate2::read::GzDecoder::new(resp);
+            let resp = api.get_tarball().await?.bytes().await?;
+            let cursor = Cursor::new(resp);
+            let decompressed = flate2::read::GzDecoder::new(cursor);
             let mut archive = tar::Archive::new(decompressed);
 
             for entry in archive.entries()? {

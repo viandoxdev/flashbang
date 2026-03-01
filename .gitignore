@@ -16,3 +16,4 @@ local.properties
 .kotlin
 debug.keystore
 debug.keystore.encoded
+fb-core/bench_cache/

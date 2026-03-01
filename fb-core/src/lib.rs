@@ -52,13 +52,13 @@ impl Core {
     fn _new(cache_path: String) -> Result<Self, CoreError> {
         Self::new(PathBuf::from(&cache_path))
     }
-    fn worldLoadFromGithub(
+    async fn worldLoadFromGithub(
         &self,
         repo: String,
         branch: String,
         token: Option<String>,
     ) -> Result<LoadResult, CoreError> {
-        WorldCore::load_from_github(self, repo, branch, token)
+        WorldCore::load_from_github(self, repo, branch, token).await
     }
     fn worldInspectSource(&self) -> Option<String> {
         WorldCore::inspect_source(self)

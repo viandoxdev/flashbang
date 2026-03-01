@@ -29,7 +29,7 @@ class Core @Inject constructor(private val context: Application) {
 
     private val compilationMutex = Mutex(false)
 
-    fun loadFromGithub(repo: String, branch: String, token: String?): LoadResult {
+    suspend fun loadFromGithub(repo: String, branch: String, token: String?): LoadResult {
         val results = core.worldLoadFromGithub(repo, branch, token)
 
         results.errors.forEach {
