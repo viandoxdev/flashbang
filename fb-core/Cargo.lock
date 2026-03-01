@@ -1601,6 +1601,7 @@ dependencies = [
  "nucleo",
  "parking_lot",
  "pollster",
+ "rayon",
  "reqwest",
  "serde",
  "slotmap",

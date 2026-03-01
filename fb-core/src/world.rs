@@ -3,11 +3,11 @@ use std::{
     error::Error,
     fmt::{Debug, Display},
     fs,
+    io::Cursor,
     path::{Path, PathBuf},
     sync::{Arc, OnceLock},
 };
 
-use futures::stream::{self, StreamExt, TryStreamExt};
 use itertools::Itertools;
 use parking_lot::Mutex;
 use reqwest::{StatusCode, blocking::Client};
@@ -200,6 +200,47 @@ impl WorldState {
     }
 }
 
+fn load_from_cache(core: &Core) -> Result<LoadResult, CoreError> {
+    use crate::cards::CardCore;
+    use rayon::prelude::*;
+
+    // Collect entries first to enable parallel iteration
+    let entries: Vec<_> = WalkDir::new(core.world.cache_path.join("workdir"))
+        .into_iter()
+        .filter_map(|e| e.ok())
+        .filter(|e| e.path().extension().and_then(|ext| ext.to_str()) == Some("typ"))
+        .enumerate()
+        .collect();
+
+    let results: Vec<Result<Vec<CardInfo>, LoadError>> = entries
+        .into_par_iter()
+        .map(|(index, entry)| {
+            let path_str = entry.path().to_string_lossy().to_string();
+            let content = std::fs::read_to_string(entry.path()).map_err(|e| LoadError {
+                error: e.to_string(),
+                path: path_str.clone(),
+            })?;
+
+            core.parse(index as u64, &content).map_err(|e| LoadError {
+                error: e.to_string(),
+                path: path_str,
+            })
+        })
+        .collect();
+
+    let mut res = Vec::new();
+    let mut errors = Vec::new();
+
+    for result in results {
+        match result {
+            Ok(mut items) => res.append(&mut items),
+            Err(e) => errors.push(e),
+        }
+    }
+
+    Ok(LoadResult { cards: res, errors })
+}
+
 pub trait WorldCore {
     async fn load_from_github(
         &self,
@@ -225,106 +266,53 @@ impl WorldCore for Core {
         branch: String,
         token: Option<String>,
     ) -> Result<LoadResult, CoreError> {
-        use crate::cards::CardCore;
-
         let api = GithubAPI::new(repo, branch, token).await?;
-        let errors = Mutex::new(Vec::new());
-
         let latest_sha = self.world.latest_sha();
 
         if latest_sha == api.sha {
-            let mut res = Vec::new();
-
-            // We can use cached data
-            for (index, entry) in WalkDir::new(self.world.cache_path.join("workdir"))
-                .into_iter()
-                .filter_map(|e| e.ok())
-                .filter(|e| e.path().extension().and_then(|ext| ext.to_str()) == Some("typ"))
-                .enumerate()
-            {
-                let content = std::fs::read_to_string(entry.path())?;
-                match self.parse(index as u64, &content) {
-                    Ok(mut items) => {
-                        res.append(&mut items);
-                    }
-                    Err(e) => {
-                        errors.lock().push(LoadError {
-                            error: e.to_string(),
-                            path: entry.path().to_string_lossy().to_string(),
-                        });
-                    }
-                };
-            }
-
-            return Ok(LoadResult {
-                cards: res,
-                errors: errors.into_inner(),
-            });
+            return load_from_cache(self);
         }
-
-        // shas differ: we need to updated our cache
 
         let workdir = self.world.cache_path.join("workdir");
 
-        // Clear (workdir) cache
-        if std::fs::exists(&workdir).unwrap_or_default() {
-            std::fs::remove_dir_all(&workdir)?;
-        }
+        if latest_sha != api.sha {
+            // shas differ: we need to update our cache
 
-        let items = api.get_items().await?.into_iter().filter(|item| {
-            item.kind == "blob"
-                && Path::new(&item.path)
-                    .extension()
-                    .map(|ext| ext == "typ")
-                    .unwrap_or_default()
-        });
+            // Clear (workdir) cache
+            if std::fs::exists(&workdir).unwrap_or_default() {
+                std::fs::remove_dir_all(&workdir)?;
+            }
+            std::fs::create_dir_all(&workdir)?;
 
-        let res = Mutex::new(Vec::new());
+            let resp = api.get_tarball().await?.bytes().await?;
+            let cursor = Cursor::new(resp);
+            let decompressed = flate2::read::GzDecoder::new(cursor);
+            let mut archive = tar::Archive::new(decompressed);
 
-        let res_ref = &res;
-        let errors_ref = &errors;
+            // Since it's doing sync I/O parsing in tar, we can do it directly. The tokio runtime provides spawn_blocking if it becomes an issue.
+            // But we already offload `worldLoadFromGithub` to Dispatchers.IO in Kotlin.
+            for entry in archive.entries()? {
+                let mut entry = entry?;
+                let path = entry.path()?.to_path_buf();
 
-        // Concurrent download and processing
-        // We buffer 10 concurrent requests
-        stream::iter(items.enumerate())
-            .map(|(index, item)| {
-                let api = &api;
-                async move {
-                    let content = api.get_blob(&item.sha).await?;
-                    Ok::<_, CoreError>((index, item, content))
-                }
-            })
-            .buffer_unordered(10)
-            .try_for_each(|res_item| async move {
-                let (index, item, content) = res_item;
-                match self.parse(index as u64, &content) {
-                    Ok(mut items) => {
-                        res_ref.lock().append(&mut items);
-                    }
-                    Err(e) => {
-                        errors_ref.lock().push(LoadError {
-                            error: e.to_string(),
-                            path: item.path.clone(),
-                        });
-                    }
+                // Keep only `.typ` files. The first component is the generated repo dir
+                let Some("typ") = path.extension().and_then(|e| e.to_str()) else {
+                    continue;
                 };
 
-                let file_id = FileId::new(None, VirtualPath::new(&item.path));
-                self.world
-                    .write_file(content, self.world.get_physical_path(&file_id))?;
+                let path: PathBuf = path.components().skip(1).collect();
+                let full_path = workdir.join(path);
+                if let Some(parent) = full_path.parent() {
+                    std::fs::create_dir_all(parent)?;
+                }
+                entry.unpack(full_path)?;
+            }
 
-                Ok::<_, CoreError>(())
-            })
-            .await?;
+            self.world.save_sha(api.sha)?;
+            self.world.new_directories.lock().push(workdir.clone());
+        }
 
-        self.world.save_sha(api.sha)?;
-
-        self.world.new_directories.lock().push(workdir);
-
-        Ok(LoadResult {
-            cards: res.into_inner(),
-            errors: errors.into_inner(),
-        })
+        load_from_cache(self)
     }
 
     fn prepare_source(
