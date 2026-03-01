@@ -3,7 +3,6 @@ use std::{
     error::Error,
     fmt::{Debug, Display},
     fs,
-    io::Cursor,
     path::{Path, PathBuf},
     sync::{Arc, OnceLock},
 };
@@ -284,11 +283,21 @@ impl WorldCore for Core {
             }
             std::fs::create_dir_all(&workdir)?;
 
-            let resp = api.get_tarball().await?.bytes().await?;
-            let cursor = Cursor::new(resp);
-            let decompressed = flate2::read::GzDecoder::new(cursor);
+            let mut resp = api.get_tarball().await?.error_for_status()?;
+
+            let temp_tarball_path = workdir.join("temp.tar.gz");
+            {
+                let mut temp_file = std::fs::File::create(&temp_tarball_path)?;
+                while let Some(chunk) = resp.chunk().await? {
+                    use std::io::Write;
+                    temp_file.write_all(&chunk)?;
+                }
+            }
+
+            let temp_file = std::fs::File::open(&temp_tarball_path)?;
+            let decompressed = flate2::read::GzDecoder::new(temp_file);
             let mut archive = tar::Archive::new(decompressed);
-            
+
             for entry in archive.entries()? {
                 let mut entry = entry?;
                 let path = entry.path()?.to_path_buf();
@@ -299,6 +308,8 @@ impl WorldCore for Core {
                     entry.unpack(workdir.join(relative_path))?;
                 }
             }
+
+            std::fs::remove_file(temp_tarball_path).ok();
 
             self.world.save_sha(api.sha)?;
             self.world.new_directories.lock().push(workdir.clone());
