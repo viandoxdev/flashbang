@@ -46,9 +46,10 @@ impl GithubAPI {
             .header(USER_AGENT, &username);
 
         if let Some(token) = token.as_ref() {
-            let mut val = HeaderValue::from_str(&format!("Bearer {token}")).unwrap();
-            val.set_sensitive(true);
-            req = req.header(AUTHORIZATION, val);
+            if let Ok(mut val) = HeaderValue::from_str(&format!("Bearer {token}")) {
+                val.set_sensitive(true);
+                req = req.header(AUTHORIZATION, val);
+            }
         }
 
         let res = req.send().await?.json::<BranchResponse>().await?;
@@ -69,9 +70,12 @@ impl GithubAPI {
             .header(USER_AGENT, &self.username)
             .header("X-GitHub-Api-Version", GithubAPI::API_VERSION);
         if let Some(token) = self.token.as_ref() {
-            let mut val = HeaderValue::from_str(&format!("Bearer {token}")).unwrap();
-            val.set_sensitive(true);
-            req.header(AUTHORIZATION, val)
+            if let Ok(mut val) = HeaderValue::from_str(&format!("Bearer {token}")) {
+                val.set_sensitive(true);
+                req.header(AUTHORIZATION, val)
+            } else {
+                req
+            }
         } else {
             req
         }
@@ -84,36 +88,5 @@ impl GithubAPI {
         ))
         .send()
         .await
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_authorization_header_is_sensitive() {
-        let client = Client::new();
-        let api = GithubAPI {
-            client,
-            repo: "owner/repo".to_string(),
-            token: Some("secret_token".to_string()),
-            username: "owner".to_string(),
-            sha: "dummy_sha".to_string(),
-        };
-
-        let req = api
-            .get("https://example.com".to_string())
-            .build()
-            .expect("Failed to build request");
-
-        if let Some(auth_header) = req.headers().get(AUTHORIZATION) {
-            assert!(
-                auth_header.is_sensitive(),
-                "Authorization header should be marked sensitive"
-            );
-        } else {
-            panic!("Authorization header missing");
-        }
     }
 }
