@@ -287,7 +287,7 @@ impl WorldCore for Core {
             let resp = api.get_tarball().await?.bytes().await?;
             let cursor = Cursor::new(resp);
             let decompressed = flate2::read::GzDecoder::new(cursor);
-            let mut archive = tar::Archive::new(decompressed)?;
+            let mut archive = tar::Archive::new(decompressed);
             
             for entry in archive.entries()? {
                 let mut entry = entry?;
