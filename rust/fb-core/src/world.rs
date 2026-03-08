@@ -1,11 +1,23 @@
 use std::{
-    collections::HashMap, error::Error, fmt::{Debug, Display}, io::{Cursor, Read}, path::PathBuf, str::FromStr, sync::Arc
+    collections::HashMap,
+    error::Error,
+    fmt::{Debug, Display},
+    io::{Cursor, Read},
+    path::{Path, PathBuf},
+    str::FromStr,
+    sync::Arc,
 };
 
 use itertools::Itertools;
 use parking_lot::Mutex;
 use typst::{
-    Library, LibraryExt, World as TypstWorld, diag::{FileError, FileResult}, foundations::Bytes, layout::{Page, PagedDocument}, syntax::{FileId, Source, VirtualPath}, text::{Font, FontBook}, utils::LazyHash
+    Library, LibraryExt, World as TypstWorld,
+    diag::{FileError, FileResult},
+    foundations::Bytes,
+    layout::{Page, PagedDocument},
+    syntax::{FileId, Source, VirtualPath},
+    text::{Font, FontBook},
+    utils::LazyHash,
 };
 use typst_kit::fonts::{FontSearcher, FontSlot as TypstFontSlot};
 
@@ -13,11 +25,24 @@ use typst_kit::fonts::{FontSearcher, FontSlot as TypstFontSlot};
 use crate::cache::CacheProvider;
 use crate::{
     cards::{CardInfo, CardSource, CardState, SourceConfig},
-    error::CoreError, packages::PackageProvider,
+    error::CoreError,
+    packages::PackageProvider,
 };
 
 #[cfg(feature = "github")]
 use crate::github::GithubAPI;
+
+trait StripFirstComponent {
+    fn pop_front<'a>(&'a self) -> &'a Path;
+}
+
+impl StripFirstComponent for Path {
+    fn pop_front(&self) -> &Path {
+        let mut components = self.components();
+        components.next();
+        components.as_path()
+    }
+}
 
 enum FontSlot {
     Typst(TypstFontSlot),
@@ -62,31 +87,33 @@ impl FileSlot {
         Self {
             id,
             source: Arc::new(None),
-            bytes: Arc::new(Some(Ok(bytes)))
+            bytes: Arc::new(Some(Ok(bytes))),
         }
     }
 
     /// Virtual path used for error messages
     fn debug_path(&self) -> PathBuf {
         match self.id.package() {
-            Some(spec) =>
-                PathBuf::from(format!("packages/{}/{}/{}", spec.namespace, spec.name, spec.version)),
-            None =>
-                PathBuf::from_str("local").unwrap()
-        }.join(self.id.vpath().as_rootless_path())
+            Some(spec) => PathBuf::from(format!(
+                "packages/{}/{}/{}",
+                spec.namespace, spec.name, spec.version
+            )),
+            None => PathBuf::from_str("local").unwrap(),
+        }
+        .join(self.id.vpath().as_rootless_path())
     }
 
     pub fn source(&self) -> FileResult<Source> {
         match self.source.as_ref() {
             Some(res) => res.clone(),
-            None => Err(FileError::NotFound(self.debug_path()))
+            None => Err(FileError::NotFound(self.debug_path())),
         }
     }
 
     pub fn bytes(&self) -> FileResult<Bytes> {
         match self.bytes.as_ref() {
             Some(res) => res.clone(),
-            None => Err(FileError::NotFound(self.debug_path()))
+            None => Err(FileError::NotFound(self.debug_path())),
         }
     }
 }
@@ -122,7 +149,7 @@ impl<T, E: Error> LoadErrorContext for Result<T, E> {
     fn context(self, path: Option<&PathBuf>) -> Result<Self::T, LoadError> {
         let path = match path {
             Some(path) => path.to_string_lossy().to_string(),
-            None => "<nowhere>".to_string()
+            None => "<nowhere>".to_string(),
         };
 
         match self {
@@ -130,7 +157,7 @@ impl<T, E: Error> LoadErrorContext for Result<T, E> {
             Err(e) => Err(LoadError {
                 error: e.to_string(),
                 path,
-            })
+            }),
         }
     }
 }
@@ -165,8 +192,7 @@ pub struct WorldState {
 impl WorldState {
     pub fn new(
         package_provider: impl PackageProvider,
-        #[cfg(feature = "cache")]
-        cache_provider: impl CacheProvider,
+        #[cfg(feature = "cache")] cache_provider: impl CacheProvider,
     ) -> Self {
         let fonts = FontSearcher::new()
             .include_system_fonts(false)
@@ -197,12 +223,13 @@ impl WorldState {
             library: LazyHash::new(Library::default()),
             main: FileId::new(None, VirtualPath::new("_main.typ")),
             #[cfg(feature = "cache")]
-            cache: Box::new(cache_provider)
+            cache: Box::new(cache_provider),
         }
     }
 }
 
 fn load_from_tarball(
+    world: &WorldState,
     cards: &CardState,
     tarball: impl Read,
 ) -> Result<LoadResult, CoreError> {
@@ -223,7 +250,18 @@ fn load_from_tarball(
             entry.and_then(|(id, mut entry, path)| {
                 let mut content = String::new();
                 entry.read_to_string(&mut content).context(Some(&path))?;
-                cards.parse(id, &content).context(Some(&path))
+
+                if content.starts_with("//![FLASHBANG INCLUDE]") {
+                    let file_id = FileId::new(None, VirtualPath::new(path.pop_front()));
+                    world.load_file(FileSlot::with_source(
+                        file_id,
+                        Source::new(file_id, content),
+                    ));
+
+                    Ok(Vec::new())
+                } else {
+                    cards.parse(id, &content).context(Some(&path))
+                }
             })
         });
 
@@ -255,21 +293,20 @@ impl WorldState {
         let api = GithubAPI::new(repo, branch, token)?;
         let latest_sha = self.cache.get_sha().unwrap_or_default();
 
-        let res = if latest_sha != api.sha {
-            // shas differ: we need to update our cache
+        if latest_sha == api.sha
+            && let Ok(tarball) = self.cache.get_tarball()
+        {
+            // Shas match and cache is working, use that
+            return Ok(load_from_tarball(self, cards, tarball)?);
+        }
 
-            let tarball = api.get_tarball()?.bytes()?;
+        // shas differ or cache is broken, we need to update our cache
+        let tarball = api.get_tarball()?.bytes()?;
 
-            self.cache.save_tarball(&mut Cursor::new(tarball.clone()))?;
-            self.cache.save_sha(api.sha)?;
+        self.cache.save_tarball(&mut Cursor::new(tarball.clone()))?;
+        self.cache.save_sha(api.sha)?;
 
-            load_from_tarball(cards, Cursor::new(tarball))?
-        } else {
-            let tarball = self.cache.get_tarball()?;
-            load_from_tarball(cards, tarball)?
-        };
-
-        Ok(res)
+        Ok(load_from_tarball(self, cards, Cursor::new(tarball))?)
     }
 
     #[cfg(all(feature = "github", not(feature = "cache")))]
@@ -314,20 +351,14 @@ impl WorldState {
             .collect_vec())
     }
     pub fn inspect_source(&self) -> Option<String> {
-        Some(
-            self.get_file(&self.main)?
-                .source()
-                .ok()?
-                .text()
-                .to_string(),
-        )
+        Some(self.get_file(&self.main)?.source().ok()?.text().to_string())
     }
 }
 
 impl WorldState {
     /// Add a file to the loaded files map
-    pub fn load_file(&self, id: FileId, slot: FileSlot) -> Option<FileSlot> {
-        self.files.lock().insert(id, slot)
+    pub fn load_file(&self, slot: FileSlot) -> Option<FileSlot> {
+        self.files.lock().insert(slot.id, slot)
     }
 
     /// Get a file
@@ -358,19 +389,19 @@ impl TypstWorld for WorldState {
         self.main
     }
     fn source(&self, id: FileId) -> FileResult<Source> {
-        if let Some(slot) = self.get_file(&id) {
-            slot.source()
-        } else if id.package().is_some() {
+        if id.package().is_some() {
             self.packages.get_package_source(id, &self)
+        } else if let Some(slot) = self.get_file(&id) {
+            slot.source()
         } else {
             Err(FileError::AccessDenied)
         }
     }
     fn file(&self, id: FileId) -> FileResult<Bytes> {
-        if let Some(slot) = self.get_file(&id) {
-            slot.bytes()
-        } else if id.package().is_some() {
+        if id.package().is_some() {
             self.packages.get_package_file(id, &self)
+        } else if let Some(slot) = self.get_file(&id) {
+            slot.bytes()
         } else {
             Err(FileError::AccessDenied)
         }

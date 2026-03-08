@@ -83,7 +83,7 @@ impl DownloadingPackageProvider {
 
         let slot = slot(path)?;
 
-        world.load_file(id, slot.clone());
+        world.load_file(slot.clone());
 
         Ok(slot)
     }
