@@ -53,7 +53,7 @@ jobs:
 
       - name: Build fb-web wasm package
         working-directory: ./rust/fb-web
-        run: wasm-pack --target web --out-dir pkg
+        run: wasm-pack build --target web --out-dir pkg
 
       - name: Archive wasm package
         working-directory: ./rust/fb-web
