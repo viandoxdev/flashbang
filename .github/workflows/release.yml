@@ -33,7 +33,7 @@ jobs:
         run: cargo install cargo-ndk
 
       - name: Install wasm-pack
-        run: curl https://drager.github.io/wasm-pack/installer/init.sh -sSf | sh
+        run: cargo install wasm-pack
 
       - name: Change wrapper permissions
         run: chmod +x ./gradlew
