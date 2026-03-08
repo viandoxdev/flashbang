@@ -1,11 +1,12 @@
-name: Generated APK (Upload - Create Artifact To Github Action)
+name: Release artifacts
 
+env:
+  # The name of the main module repository
+  main_project_module: app
 on: 
   push:
-    branches:
-      - '**'
-  # Allows you to run this workflow manually from the Actions tab
-  workflow_dispatch:
+    tags:
+      - 'v*'
 
 jobs:
   build:
@@ -13,9 +14,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set current date as env variable
-        run: echo "date_today=$(date +'%Y-%m-%d')" >> $GITHUB_ENV
 
       - name: Set Up JDK
         uses: actions/setup-java@v4
@@ -34,6 +32,9 @@ jobs:
       - name: Install cargo-ndk
         run: cargo install cargo-ndk
 
+      - name: Install wasm-pack
+        run: curl https://drager.github.io/wasm-pack/installer/init.sh -sSf | sh
+
       - name: Change wrapper permissions
         run: chmod +x ./gradlew
 
@@ -42,22 +43,26 @@ jobs:
         run: ./build-android.sh
 
       - name: Install debug singing keystore
-        env: 
+        env:
           ENCODED_KEY: ${{ secrets.DEBUG_SIGNING_KEY }}
         shell: bash
         run: base64 -di <<< "$ENCODED_KEY" > "./debug.keystore"
 
-      - name: Run gradle tests
-        run: ./gradlew test
+      - name: Build apk release project (APK)
+        run: ./gradlew assembleRelease
 
-      - name: Build gradle project
-        run: ./gradlew build
+      - name: Build fb-web wasm package
+        working-directory: ./rust/fb-web
+        run: wasm-pack --target web --out-dir pkg
 
-      - name: Build apk debug project (APK)
-        run: ./gradlew assembleDebug
+      - name: Archive wasm package
+        working-directory: ./rust/fb-web
+        run: zip -r wasm-bundle.zip pkg/
 
-      - name: Upload APK Debug
-        uses: actions/upload-artifact@v4
+      - name: Publish release with artifacts
+        uses: softprops/action-gh-release@v2
         with:
-          name: ${{ env.date_today }} - APK(s) debug generated
-          path: app/build/outputs/apk/debug/app-debug.apk
+          generate_release_notes: true
+          files: |
+            ./app/build/outputs/apk/release/app-release.apk
+            ./rust/fb-web/wasm-bundle.zip
