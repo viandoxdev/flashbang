@@ -23,7 +23,7 @@ data class Study(
             return it
         }
 
-        val sum = Study.buildSelectionSummary(selection.mapNotNull { cards.cards[it] }.toSet())
+        val sum = buildSelectionSummary(selection.mapNotNull { cards.cards[it] }.toSet())
         selectionSummary = sum
         return sum
     }

@@ -5,16 +5,14 @@ import android.os.storage.StorageManager
 import android.util.Log
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import uniffi.mobile.CardPage
-import uniffi.mobile.CardSource
-import uniffi.mobile.Core as FFICore
-import uniffi.mobile.FuzzyStatus
-import uniffi.mobile.LoadError
-import uniffi.mobile.LoadResult
-import uniffi.mobile.SourceConfig
+import uniffi.fb_core.CardPage
+import uniffi.fb_core.CardSource
+import uniffi.fb_core.LoadResult
+import uniffi.fb_core.SourceConfig
 import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
+import uniffi.mobile.Core as FFICore
 
 /**
  * Singleton wrapper around ffi World

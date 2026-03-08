@@ -7,7 +7,6 @@ import androidx.compose.foundation.gestures.AnchoredDraggableState
 import androidx.compose.foundation.gestures.DraggableAnchors
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.anchoredDraggable
-import androidx.compose.foundation.gestures.animateTo
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
@@ -44,7 +43,6 @@ import coil3.request.ImageRequest
 import coil3.svg.SvgDecoder
 import dev.vndx.flashbang.R
 import dev.vndx.flashbang.TAG
-import dev.vndx.flashbang.domain.Card
 import dev.vndx.flashbang.ui.CardsUiState
 import dev.vndx.flashbang.ui.CardsViewModel
 import dev.vndx.flashbang.ui.SettingsViewModel
@@ -54,7 +52,7 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
-import uniffi.mobile.SourceConfig
+import uniffi.fb_core.SourceConfig
 import java.nio.ByteBuffer
 import kotlin.math.roundToInt
 
@@ -164,7 +162,7 @@ class CardPreviewScreen(val cardId: String) : Screen {
             val pageWidthPixels = with(density) { maxWidth.toPx() }
             val context = LocalContext.current
             val pagesFlow = remember(maxWidth, density, preferences, card) {
-                flow<List<RenderedPage>> {
+                flow {
                     Log.w(TAG, "Compiling for $maxWidth")
                     val pages = cardsViewModel.core.compileCards(
                         listOf(card), SourceConfig(

@@ -225,7 +225,7 @@ open class ExploreScreen(var savedQuery: String = "") : Screen {
             ) { }
             when (state) {
                 is CardsUiState.Loading -> {
-                    ShimmerProvider() {
+                    ShimmerProvider {
                         LazyColumn(
                             modifier = Modifier.Companion
                                 .fillMaxSize()

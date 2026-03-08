@@ -64,7 +64,6 @@ class CreateStudyScreen : Screen {
 
         val cardsState by cardsViewModel.uiState.collectAsState()
 
-        val count = selectionViewModel.selection.size
         val summary by remember(selectionViewModel.selection, cardsState) {
             derivedStateOf {
                 val state = cardsState

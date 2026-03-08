@@ -20,7 +20,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import uniffi.mobile.SchedulerMemoryState
+import uniffi.fb_core.SchedulerMemoryState
 import java.time.LocalDateTime
 import java.time.ZoneOffset
 import java.time.temporal.ChronoUnit
@@ -242,7 +242,7 @@ class StudiesViewModel @Inject constructor(
         // Update Card object if provided
         card?.let {
             if (lastReviewTime != null) {
-                val scheduledFor = lastReviewTime!!.plusHours((lastDelay * 24f).toLong())
+                val scheduledFor = lastReviewTime.plusHours((lastDelay * 24f).toLong())
                 it.scheduledFor = scheduledFor.toLocalDate()
             } else {
                 it.scheduledFor = null
@@ -258,7 +258,7 @@ class StudiesViewModel @Inject constructor(
 
         var currentState: SchedulerMemoryState? = null
         var lastReviewTime: LocalDateTime? = null
-        var lastDelay: Float = 0f
+        var lastDelay = 0f
 
         for (review in sortedReviews) {
             val currentReviewTime = LocalDateTime.ofEpochSecond(review.timestamp, 0, ZoneOffset.UTC)

@@ -18,7 +18,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonColors
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -27,7 +26,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -35,7 +34,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil3.compose.AsyncImage
@@ -50,12 +48,11 @@ import dev.vndx.flashbang.ui.CardsViewModel
 import dev.vndx.flashbang.ui.SettingsViewModel
 import dev.vndx.flashbang.ui.Sizes
 import dev.vndx.flashbang.ui.StudiesState
-import androidx.compose.runtime.produceState
 import dev.vndx.flashbang.ui.StudiesViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
-import uniffi.mobile.SourceConfig
+import uniffi.fb_core.SourceConfig
 import java.nio.ByteBuffer
 import kotlin.math.roundToInt
 
@@ -134,7 +131,6 @@ class ReviewScreen(val study: Study) : Screen {
             Log.e(TAG, "Some cards could not be loaded.")
         }
 
-        val density = LocalDensity.current
         val preferences by viewModel<SettingsViewModel>().preferences.collectAsState()
 
         Column(

@@ -158,8 +158,8 @@ interface Screen : NavKey {
                 }
             }
         ) { padding ->
-            val bottom = padding.calculateBottomPadding();
-            val top = padding.calculateTopPadding();
+            val bottom = padding.calculateBottomPadding()
+            val top = padding.calculateTopPadding()
             Box(
                 Modifier
                     .padding(top = top, bottom = bottom)
@@ -171,7 +171,7 @@ interface Screen : NavKey {
     }
 
     @Composable
-    fun Compose(onNavigate: (Screen) -> Unit, onBack: (Int?) -> Unit): Unit {
+    fun Compose(onNavigate: (Screen) -> Unit, onBack: (Int?) -> Unit) {
         // If this isn't implemented, shit breaks, I don't know why or how but whatever.
         Log.e(TAG, "How did we get here ?")
         Box(

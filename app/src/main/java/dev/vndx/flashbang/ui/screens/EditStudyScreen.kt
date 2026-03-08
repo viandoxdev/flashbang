@@ -40,7 +40,6 @@ import dev.vndx.flashbang.R
 import dev.vndx.flashbang.data.dateTimeFormatter
 import dev.vndx.flashbang.domain.Card
 import dev.vndx.flashbang.domain.Tag
-import dev.vndx.flashbang.ui.CardsUiState
 import dev.vndx.flashbang.ui.CardsViewModel
 import dev.vndx.flashbang.ui.Directory
 import dev.vndx.flashbang.ui.Flashcard

@@ -1,5 +1,6 @@
 package dev.vndx.flashbang.ui.screens
 
+import android.annotation.SuppressLint
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -109,6 +110,7 @@ class StudyFinishedScreen(val study: Study) : Screen {
         }
     }
 
+    @SuppressLint("DefaultLocale")
     private fun formatDuration(duration: Duration): String {
         val hours = duration.toHours()
         val minutes = duration.toMinutes() % 60
