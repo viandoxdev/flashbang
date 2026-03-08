@@ -49,7 +49,7 @@ jobs:
         run: chmod +x ./gradlew
 
       - name: Build fb-core binary and bindings
-        working-directory: ./fb-core
+        working-directory: ./rust/fb-android
         run: ./build-android.sh
 
       - name: Install debug singing keystore
@@ -114,7 +114,7 @@ jobs:
         run: chmod +x ./gradlew
 
       - name: Build fb-core binary and bindings
-        working-directory: ./fb-core
+        working-directory: ./rust/fb-android
         run: ./build-android.sh
 
       - name: Install debug singing keystore

@@ -18,6 +18,6 @@ cargo ndk -o ../../app/src/main/jniLibs \
 # Generate bindgens
 mkdir -p ../../app/src/main/java/dev/vndx/flashbang/rust
 cargo run --bin uniffi-bindgen generate \
-    --library ./target/debug/libmobile.so \
+    --library ../target/debug/libmobile.so \
     --language kotlin \
     --out-dir ../../app/src/main/java/dev/vndx/flashbang/rust
