@@ -39,7 +39,7 @@ jobs:
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           toolchain: 1.91.1
-          rust-src-dir: ./fb-core
+          rust-src-dir: ./rust
           target: aarch64-linux-android
 
       - name: Install cargo-ndk
@@ -48,8 +48,8 @@ jobs:
       - name: Change wrapper permissions
         run: chmod +x ./gradlew
 
-      - name: Build fb-core binary and bindings
-        working-directory: ./fb-core
+      - name: Build fb-android binary and bindings
+        working-directory: ./rust/fb-android
         run: ./build-android.sh
 
       - name: Install debug singing keystore
@@ -104,7 +104,7 @@ jobs:
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           toolchain: 1.91.1
-          rust-src-dir: ./fb-core
+          rust-src-dir: ./rust
           target: aarch64-linux-android
 
       - name: Install cargo-ndk
@@ -113,8 +113,8 @@ jobs:
       - name: Change wrapper permissions
         run: chmod +x ./gradlew
 
-      - name: Build fb-core binary and bindings
-        working-directory: ./fb-core
+      - name: Build fb-android binary and bindings
+        working-directory: ./rust/fb-android
         run: ./build-android.sh
 
       - name: Install debug singing keystore

@@ -85,7 +85,6 @@ class StudiesScreen() : Screen {
                         Study(
                             name = study.name,
                             cards = 0,
-                            id = study.id,
                             description = study.description,
                             date = LocalDate.MIN,
                             progress = 0.5f,
@@ -106,7 +105,6 @@ class StudiesScreen() : Screen {
                     Study(
                         name = study.name,
                         cards = study.selection.size,
-                        id = study.id,
                         description = stringResource(
                             R.string.selected,
                             study.getOrBuildSelectionSummary(cardsState)

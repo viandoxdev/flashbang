@@ -18,8 +18,8 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
-import uniffi.mobile.CoreException
-import uniffi.mobile.LoadResult
+import uniffi.fb_core.CoreException
+import uniffi.fb_core.LoadResult
 import javax.inject.Inject
 
 data class CardRepositoryDetails(

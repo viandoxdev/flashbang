@@ -1,5 +1,6 @@
 package dev.vndx.flashbang.ui.screens
 
+import android.annotation.SuppressLint
 import dev.vndx.flashbang.R
 import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.layout.Arrangement
@@ -43,6 +44,7 @@ data class CardHistoryScreen(val cardId: String) : Screen {
     override fun ComposeTopBarAction(onNavigate: (Screen) -> Unit, onBack: (Int?) -> Unit) {
     }
 
+    @SuppressLint("DefaultLocale")
     @Composable
     override fun Compose(onNavigate: (Screen) -> Unit, onBack: (Int?) -> Unit) {
         val studiesViewModel = viewModel<StudiesViewModel>(viewModelStoreOwner = LocalActivity.current as ViewModelStoreOwner)

@@ -7,9 +7,10 @@ use fsrs::{
 use itertools::Itertools;
 use parking_lot::Mutex;
 
-use crate::{Core, error::CoreError};
+use crate::{error::CoreError};
 
-#[derive(Debug, Clone, uniffi::Object)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Object))]
 pub struct Progress {
     inner: Arc<std::sync::Mutex<CombinedProgressState>>,
 }
@@ -20,9 +21,9 @@ impl Progress {
     }
 }
 
-#[uniffi::export]
+#[cfg_attr(feature = "uniffi", uniffi::export)]
 impl Progress {
-    #[uniffi::constructor]
+    #[cfg_attr(feature = "uniffi", uniffi::constructor)]
     pub fn new() -> Self {
         Self {
             inner: CombinedProgressState::new_shared(),
@@ -54,39 +55,28 @@ impl SchedulerState {
     }
 }
 
-pub trait SchedulerCore {
-    fn set_parameters(&self, parameters: &[f32]) -> Result<(), CoreError>;
-    fn set_retention(&self, value: f32);
-    fn next_state(&self, state: Option<MemoryState>, days_elapsed: u32) -> Result<NextStates, CoreError>;
-    fn compute_parameters(
-        &self,
-        items: Vec<FSRSItem>,
-        progress: Option<Progress>,
-    ) -> Result<Vec<f32>, CoreError>;
-}
-
-impl SchedulerCore for Core {
-    fn set_retention(&self, value: f32) {
-        self.scheduler.set_retention(value);
+impl SchedulerState {
+    pub fn set_retention(&self, value: f32) {
+        self.retention
+            .store(value.to_bits(), std::sync::atomic::Ordering::SeqCst);
     }
-    fn set_parameters(&self, parameters: &[f32]) -> Result<(), CoreError> {
-        *self.scheduler.fsrs.lock() = FSRS::new(Some(parameters))?;
+    pub fn set_parameters(&self, parameters: &[f32]) -> Result<(), CoreError> {
+        *self.fsrs.lock() = FSRS::new(Some(parameters))?;
         Ok(())
     }
-    fn next_state(&self, state: Option<MemoryState>, days_elapsed: u32) -> Result<NextStates, CoreError> {
-        Ok(self.scheduler.fsrs.lock().next_states(
+    pub fn next_state(&self, state: Option<MemoryState>, days_elapsed: u32) -> Result<NextStates, CoreError> {
+        Ok(self.fsrs.lock().next_states(
             state,
-            self.scheduler.get_retention(),
+            self.get_retention(),
             days_elapsed,
         )?)
     }
-    fn compute_parameters(
+    pub fn compute_parameters(
         &self,
         items: Vec<FSRSItem>,
         progress: Option<Progress>,
-    ) -> Result<Vec<f32>, CoreError> {
+    ) -> Result<Vec<f32>, CoreError> { 
         Ok(self
-            .scheduler
             .fsrs
             .lock()
             .compute_parameters(fsrs::ComputeParametersInput {
@@ -99,10 +89,6 @@ impl SchedulerCore for Core {
 }
 
 impl SchedulerState {
-    fn set_retention(&self, value: f32) {
-        self.retention
-            .store(value.to_bits(), std::sync::atomic::Ordering::SeqCst);
-    }
     fn get_retention(&self) -> f32 {
         f32::from_bits(self.retention.load(std::sync::atomic::Ordering::SeqCst))
     }
@@ -110,25 +96,25 @@ impl SchedulerState {
 
 // Uniffi wrapper types
 
-#[derive(uniffi::Record)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct SchedulerMemoryState {
     stability: f32,
     difficulty: f32,
 }
 
-#[derive(uniffi::Record)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct SchedulerReview {
     rating: u32,
     delta_t: u32,
 }
 
-#[derive(uniffi::Record)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct SchedulerItemState {
     state: SchedulerMemoryState,
     delay: f32,
 }
 
-#[derive(uniffi::Record)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct SchedulerNextState {
     again: SchedulerItemState,
     hard: SchedulerItemState,
@@ -138,6 +124,7 @@ pub struct SchedulerNextState {
 
 pub struct SchedulerItem(Vec<SchedulerReview>);
 
+#[cfg(feature = "uniffi")]
 uniffi::custom_newtype!(SchedulerItem, Vec<SchedulerReview>);
 
 impl From<SchedulerMemoryState> for MemoryState {

@@ -5,25 +5,24 @@
 
 use std::ops::Deref;
 use std::sync::Arc;
-use std::usize;
 
 use itertools::Itertools;
 
 use crate::error::CoreError;
-use crate::Core;
 
-#[derive(uniffi::Object)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Object))]
 pub struct HeaderInfoInner {
     inner: String,
     id: u64,
 }
 
+#[cfg(feature = "uniffi")]
 uniffi::custom_newtype!(HeaderInfo, Arc<HeaderInfoInner>);
 
 #[derive(Clone)]
 pub struct HeaderInfo(Arc<HeaderInfoInner>);
 
-#[derive(uniffi::Record)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct CardInfo {
     id: String,
     name: String,
@@ -33,7 +32,7 @@ pub struct CardInfo {
     answer: String,
 }
 
-#[uniffi::export(with_foreign)]
+#[cfg_attr(feature = "uniffi", uniffi::export(with_foreign))]
 pub trait CardSource: Send + Sync {
     fn header_content(&self) -> Option<String>;
     fn header_eq(&self, other: Option<Arc<dyn CardSource>>) -> bool;
@@ -77,7 +76,7 @@ impl HeaderInfo {
     }
 }
 
-#[uniffi::export]
+#[cfg_attr(feature = "uniffi", uniffi::export)]
 impl HeaderInfoInner {
     fn content(&self) -> String {
         self.inner.clone()
@@ -101,7 +100,8 @@ impl PartialEq for HeaderInfo {
 }
 
 /// Config for things that the source needs to compile
-#[derive(Clone, Copy, uniffi::Record)]
+#[derive(Clone, Copy)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct SourceConfig {
     /// Page width in pt
     pub page_width: u32,
@@ -118,18 +118,9 @@ impl CardState {
     }
 }
 
-pub trait CardCore {
-    fn parse<'a>(&self, id: u64, content: &'a str) -> Result<Vec<CardInfo>, CoreError>;
-    fn build_source(
-        &self,
-        cards: impl IntoIterator<Item = Arc<dyn CardSource>>,
-        config: SourceConfig,
-    ) -> Result<String, CoreError>;
-}
-
-impl CardCore for Core {
+impl CardState {
     /// Build the source for a set of cards and a config
-    fn build_source(
+    pub fn build_source(
         &self,
         cards: impl IntoIterator<Item = Arc<dyn CardSource>>,
         config: SourceConfig,
@@ -181,7 +172,7 @@ impl CardCore for Core {
     }
 
     /// Parse a typst source file for the cards inside
-    fn parse<'a>(&self, id: u64, content: &'a str) -> Result<Vec<CardInfo>, CoreError> {
+    pub fn parse<'a>(&self, id: u64, content: &'a str) -> Result<Vec<CardInfo>, CoreError> {
         if content.starts_with("//![FLASHBANG IGNORE]")
             || content.starts_with("//![FLASHBANG INCLUDE]")
         {
@@ -271,4 +262,3 @@ impl CardCore for Core {
             .collect_vec())
     }
 }
-

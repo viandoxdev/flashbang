@@ -4,7 +4,6 @@ import androidx.datastore.core.CorruptionException
 import androidx.datastore.core.Serializer
 import com.google.protobuf.InvalidProtocolBufferException
 import dev.vndx.flashbang.Studies
-import dev.vndx.flashbang.Rating as ProtoRating
 import java.io.InputStream
 import java.io.OutputStream
 
@@ -30,7 +29,7 @@ val DefaultParameters = listOf(
     0.0912f,
     0.0658f,
     0.1542f,
-);
+)
 
 object StudiesSerializer : Serializer<Studies> {
     override val defaultValue: Studies

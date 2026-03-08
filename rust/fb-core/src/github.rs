@@ -16,8 +16,6 @@ struct BranchResponse {
     commit: Commit,
 }
 
-
-
 pub struct GithubAPI {
     client: Client,
     repo: String,

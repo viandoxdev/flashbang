@@ -1,23 +1,17 @@
 package dev.vndx.flashbang.domain
 
-import dev.vndx.flashbang.domain.Tag
 import dev.vndx.flashbang.ui.LocalDateSerializer
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.Serializer
-import kotlinx.serialization.serializerOrNull
-import uniffi.mobile.CardSource
-import uniffi.mobile.FuzzyItem
+import uniffi.fb_core.CardSource
+import uniffi.fb_core.FuzzyItem
 import java.time.LocalDate
-import java.time.LocalDateTime
-import kotlinx.serialization.builtins.nullable
 import kotlinx.serialization.descriptors.PrimitiveKind
 import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
 import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
-import java.time.format.DateTimeFormatter
 
 @Serializable(with = HeaderSerializer::class)
 class Header(value: String) {

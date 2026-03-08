@@ -1,7 +1,6 @@
 package dev.vndx.flashbang
 
 import android.os.Bundle
-import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -37,20 +36,20 @@ import dev.vndx.flashbang.ui.FlashbangTheme
 import dev.vndx.flashbang.ui.PreferencesState
 import dev.vndx.flashbang.ui.SettingsViewModel
 import dev.vndx.flashbang.ui.StudiesViewModel
+import dev.vndx.flashbang.ui.screens.CardHistoryScreen
 import dev.vndx.flashbang.ui.screens.CardPreviewScreen
 import dev.vndx.flashbang.ui.screens.CreateStudyScreen
 import dev.vndx.flashbang.ui.screens.DummyScreen
 import dev.vndx.flashbang.ui.screens.EditStudyScreen
-import dev.vndx.flashbang.ui.screens.CardHistoryScreen
 import dev.vndx.flashbang.ui.screens.ExploreScreen
 import dev.vndx.flashbang.ui.screens.ReviewScreen
-import dev.vndx.flashbang.ui.screens.StudyFinishedScreen
 import dev.vndx.flashbang.ui.screens.Screen
 import dev.vndx.flashbang.ui.screens.SelectionScreen
 import dev.vndx.flashbang.ui.screens.SettingsScreen
 import dev.vndx.flashbang.ui.screens.SourcePreviewScreen
 import dev.vndx.flashbang.ui.screens.StatisticsScreen
 import dev.vndx.flashbang.ui.screens.StudiesScreen
+import dev.vndx.flashbang.ui.screens.StudyFinishedScreen
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.take
@@ -84,16 +83,13 @@ class MainActivity() : ComponentActivity() {
 
         // Listen on the first successful preference load to load cards from github
         lifecycleScope.launch {
-            Log.w(TAG, "In LifecycleScope")
             settingsViewModel.preferences
                 .filterIsInstance<PreferencesState.Success>()
                 .take(1)
                 .map {
-                    Log.w(TAG, "Got first successful load")
                     val prefs = it.preferences
                     CardRepositoryDetails(prefs.repository, prefs.branch, prefs.githubToken)
                 }.collect {
-                    Log.w(TAG, "Sent over to cardTree")
                     cardsViewModel.load(it)
                 }
         }
@@ -103,7 +99,7 @@ class MainActivity() : ComponentActivity() {
 
             val preferences = preferencesState.preferences
 
-            val backStack = rememberNavBackStack(StudiesScreen())
+            val backStack = rememberNavBackStack(Screen.homeScreen())
             val isSystemInDarkTheme = isSystemInDarkTheme()
             val useDarkTheme =
                 when (preferences.theme) {

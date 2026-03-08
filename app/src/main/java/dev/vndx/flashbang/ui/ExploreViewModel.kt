@@ -12,13 +12,12 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
-import uniffi.mobile.FuzzyStatus
+import uniffi.fb_core.FuzzyStatus
 import javax.inject.Inject
 
 @HiltViewModel
@@ -27,14 +26,13 @@ class ExploreViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val _searchQuery = MutableStateFlow("")
-    val searchQuery = _searchQuery.asStateFlow()
 
     @OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
     val searchResultIds: StateFlow<List<String>> = _searchQuery
         .debounce(100)
         .flatMapLatest { query ->
             if (query.isEmpty()) {
-                flow { emit(emptyList<String>()) }
+                flow { emit(emptyList()) }
             } else {
                 searchFlow(query)
             }
