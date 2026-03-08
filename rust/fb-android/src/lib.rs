@@ -1,46 +1,53 @@
 use std::{path::PathBuf, sync::Arc};
 
 use android_logger::{Config, FilterBuilder};
-use fsrs::MemoryState;
-use itertools::Itertools;
-
-use crate::{
+use fb_core::{
     cards::{CardSource, CardState, SourceConfig},
     error::CoreError,
-    fuzzy::{FuzzyCore, FuzzyItem, FuzzyState, FuzzyStatus},
+    fsrs::MemoryState,
+    fuzzy::{FuzzyItem, FuzzyState, FuzzyStatus},
     scheduler::{
-        Progress, SchedulerCore, SchedulerItem, SchedulerMemoryState, SchedulerNextState,
-        SchedulerState,
+        Progress, SchedulerItem, SchedulerMemoryState, SchedulerNextState, SchedulerState,
     },
-    world::{CardPage, LoadResult, WorldCore, WorldState},
+    world::{CardPage, LoadResult, WorldState},
+};
+use parking_lot::Mutex;
+
+use crate::{
+    cache_provider::FileSystemCacheProvider, package_provider::DownloadingPackageProvider,
 };
 
-uniffi::setup_scaffolding!();
+mod cache_provider;
+mod package_provider;
 
-mod cards;
-mod error;
-mod fuzzy;
-mod github;
-mod scheduler;
-mod world;
+uniffi::setup_scaffolding!();
 
 /// Main struct of this library, acts as a global context for the different features this
 /// implements
 #[derive(uniffi::Object)]
 pub struct Core {
-    pub card: CardState,
-    pub world: WorldState,
-    pub fuzzy: FuzzyState,
-    pub scheduler: SchedulerState,
+    card: CardState,
+    world: WorldState,
+    fuzzy: FuzzyState,
+    scheduler: SchedulerState,
+    cache_groups: Arc<Mutex<Vec<String>>>,
 }
 
 impl Core {
-    pub fn new(cache_path: PathBuf) -> Result<Self, CoreError> {
+    pub fn new(data_path: PathBuf) -> Result<Self, CoreError> {
+        let packages_path = data_path.join("packages");
+        let cache_path = data_path.join("repo");
+
+        let cache_groups = Arc::new(Mutex::new(vec![cache_path.to_string_lossy().to_string()]));
+        let package_provider = DownloadingPackageProvider::new(packages_path, cache_groups.clone());
+        let cache_provider = FileSystemCacheProvider::new(cache_path);
+
         Ok(Self {
             card: CardState::new(),
-            world: WorldState::new(cache_path),
+            world: WorldState::new(package_provider, cache_provider),
             fuzzy: FuzzyState::new(),
             scheduler: SchedulerState::new()?,
+            cache_groups,
         })
     }
 }
@@ -58,58 +65,54 @@ impl Core {
         branch: String,
         token: Option<String>,
     ) -> Result<LoadResult, CoreError> {
-        WorldCore::load_from_github(self, repo, branch, token)
+        self.world.load_from_github(&self.card, repo, branch, token)
     }
     fn worldInspectSource(&self) -> Option<String> {
-        WorldCore::inspect_source(self)
+        self.world.inspect_source()
     }
     fn worldPrepareSource(
         &self,
         cards: Vec<Arc<dyn CardSource>>,
         config: SourceConfig,
     ) -> Result<(), CoreError> {
-        WorldCore::prepare_source(self, cards, config)
+        self.world.prepare_source(&self.card, cards, config)
     }
     fn worldCompile(&self) -> Result<Vec<Arc<CardPage>>, CoreError> {
-        WorldCore::compile(self)
-    }
-    fn worldNewCachedDirectories(&self) -> Vec<String> {
-        WorldCore::new_cached_directories(self)
-            .into_iter()
-            .map(|path| path.to_string_lossy().to_string())
-            .collect_vec()
+        self.world.compile()
     }
     fn fuzzyInit(&self, pattern: String) {
-        FuzzyCore::init(self, &pattern);
+        self.fuzzy.init(&pattern);
     }
     fn fuzzyTick(&self) -> FuzzyStatus {
-        FuzzyCore::tick(self)
+        self.fuzzy.tick()
     }
     fn fuzzyResults(&self) -> Vec<Arc<dyn FuzzyItem>> {
-        FuzzyCore::results(self)
+        self.fuzzy.results()
     }
     fn fuzzyAddItem(&self, item: Arc<dyn FuzzyItem>) {
-        FuzzyCore::add_item(self, item);
+        self.fuzzy.add_item(item);
     }
     fn fuzzyAddItems(&self, items: Vec<Arc<dyn FuzzyItem>>) {
-        FuzzyCore::add_items(self, items);
+        self.fuzzy.add_items(items);
     }
     fn fuzzyReset(&self) {
-        FuzzyCore::reset(self);
+        self.fuzzy.reset();
     }
     fn schedulerSetParameters(&self, parameters: Vec<f32>) -> Result<(), CoreError> {
-        SchedulerCore::set_parameters(self, &parameters)
+        self.scheduler.set_parameters(&parameters)
+    }
+    fn worldNewCachedDirectories(&self) -> Vec<String> {
+        self.cache_groups.lock().clone()
     }
     fn schedulerNextState(
         &self,
         state: Option<SchedulerMemoryState>,
         days_elapsed: u32,
     ) -> Result<SchedulerNextState, CoreError> {
-        Ok(SchedulerNextState::from(SchedulerCore::next_state(
-            self,
-            state.map(MemoryState::from),
-            days_elapsed,
-        )?))
+        Ok(SchedulerNextState::from(
+            self.scheduler
+                .next_state(state.map(MemoryState::from), days_elapsed)?,
+        ))
     }
     // We have to arc proress (even though it already contains an arc) for ffi
     fn schedulerRecomputeParameters(
@@ -117,14 +120,13 @@ impl Core {
         items: Vec<SchedulerItem>,
         progress: Option<Arc<Progress>>,
     ) -> Result<Vec<f32>, CoreError> {
-        SchedulerCore::compute_parameters(
-            self,
-            items.into_iter().map(From::from).collect_vec(),
+        self.scheduler.compute_parameters(
+            items.into_iter().map(From::from).collect::<Vec<_>>(),
             progress.map(|v| <Progress as Clone>::clone(&*v)),
         )
     }
     fn schedulerSetRetention(&self, value: f32) {
-        SchedulerCore::set_retention(self, value);
+        self.scheduler.set_retention(value);
     }
 }
 

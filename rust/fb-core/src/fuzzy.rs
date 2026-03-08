@@ -4,9 +4,7 @@ use itertools::Itertools;
 use nucleo::{pattern::{CaseMatching, Normalization}, Injector, Nucleo};
 use parking_lot::Mutex;
 
-use crate::Core;
-
-#[uniffi::export(with_foreign)]
+#[cfg_attr(feature = "uniffi", uniffi::export(with_foreign))]
 pub trait FuzzyItem: Send + Sync {
     fn key(&self) -> String;
     fn data(&self) -> String;
@@ -14,7 +12,8 @@ pub trait FuzzyItem: Send + Sync {
 
 type AnyFuzzy = Arc<dyn FuzzyItem>;
 
-#[derive(Debug, Clone, Copy, uniffi::Enum)]
+#[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 pub enum FuzzyStatus {
     Stale,
     Updated,
@@ -49,18 +48,9 @@ impl FuzzyState {
     }
 }
 
-pub trait FuzzyCore {
-    fn init(&self, pattern: &str);
-    fn tick(&self) -> FuzzyStatus;
-    fn results(&self) -> Vec<AnyFuzzy>;
-    fn add_item(&self, item: AnyFuzzy);
-    fn add_items(&self, items: Vec<AnyFuzzy>);
-    fn reset(&self);
-}
-
-impl FuzzyCore for Core {
-    fn init(&self, pattern: &str) {
-        self.fuzzy.nucleo.lock().pattern.reparse(
+impl FuzzyState {
+    pub fn init(&self, pattern: &str) {
+        self.nucleo.lock().pattern.reparse(
             0,
             pattern,
             CaseMatching::Ignore,
@@ -69,12 +59,12 @@ impl FuzzyCore for Core {
         );
     }
 
-    fn tick(&self) -> FuzzyStatus {
-        self.fuzzy.nucleo.lock().tick(500).into()
+    pub fn tick(&self) -> FuzzyStatus {
+        self.nucleo.lock().tick(500).into()
     }
 
-    fn results(&self) -> Vec<AnyFuzzy> {
-        self.fuzzy.nucleo
+    pub fn results(&self) -> Vec<AnyFuzzy> {
+        self.nucleo
             .lock()
             .snapshot()
             .matched_items(..)
@@ -82,21 +72,21 @@ impl FuzzyCore for Core {
             .collect_vec()
     }
 
-    fn add_item(&self, item: AnyFuzzy) {
+    pub fn add_item(&self, item: AnyFuzzy) {
         let key = item.key();
-        self.fuzzy.injector.lock().push(item, |_, row| row[0] = key.into());
+        self.injector.lock().push(item, |_, row| row[0] = key.into());
     }
 
-    fn add_items(&self, items: Vec<AnyFuzzy>) {
-        let injector = self.fuzzy.injector.lock();
+    pub fn add_items(&self, items: Vec<AnyFuzzy>) {
+        let injector = self.injector.lock();
         for item in items {
             let key = item.key();
             injector.push(item, |_, row| row[0] = key.into());
         }
     }
 
-    fn reset(&self) {
-        self.fuzzy.nucleo.lock().restart(true);
-        *self.fuzzy.injector.lock() = self.fuzzy.nucleo.lock().injector();
+    pub fn reset(&self) {
+        self.nucleo.lock().restart(true);
+        *self.injector.lock() = self.nucleo.lock().injector();
     }
 }
