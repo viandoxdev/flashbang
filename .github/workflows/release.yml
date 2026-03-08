@@ -12,6 +12,9 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
+    permissions:
+      contents: write
+
     steps:
       - uses: actions/checkout@v4
 
@@ -27,7 +30,7 @@ jobs:
         with:
           toolchain: 1.91.1
           rust-src-dir: ./rust
-          target: aarch64-linux-android
+          target: aarch64-linux-android, wasm32-unknown-unknown
 
       - name: Install cargo-ndk
         run: cargo install cargo-ndk
