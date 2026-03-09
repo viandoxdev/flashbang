@@ -56,11 +56,11 @@ jobs:
 
       - name: Build fb-web wasm package
         working-directory: ./rust/fb-web
-        run: wasm-pack build --target web --out-dir pkg
+        run: ./build-web.sh
 
-      - name: Archive wasm package
-        working-directory: ./rust/fb-web
-        run: zip -r wasm-bundle.zip pkg/
+      - name: Build fb-cli binary
+        working-directory: ./rust/fb-cli
+        run: cargo build --release
 
       - name: Publish release with artifacts
         uses: softprops/action-gh-release@v2
@@ -69,3 +69,4 @@ jobs:
           files: |
             ./app/build/outputs/apk/release/app-release.apk
             ./rust/fb-web/wasm-bundle.zip
+            ./rust/target/release/fb-cli

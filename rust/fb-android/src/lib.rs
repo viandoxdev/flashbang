@@ -78,7 +78,9 @@ impl Core {
         self.world.prepare_source(&self.card, cards, config)
     }
     fn worldCompile(&self) -> Result<Vec<Arc<CardPage>>, CoreError> {
-        self.world.compile()
+        self.world
+            .compile()
+            .map(|pages| pages.into_iter().map(|p| Arc::new(p)).collect())
     }
     fn fuzzyInit(&self, pattern: String) {
         self.fuzzy.init(&pattern);
@@ -87,7 +89,8 @@ impl Core {
         self.fuzzy.tick()
     }
     fn fuzzyResults(&self) -> Vec<Arc<dyn FuzzyItem>> {
-        self.fuzzy.results()
+        self.fuzzy
+            .with_results(|iter| iter.map(|i| i.data.clone()).collect())
     }
     fn fuzzyAddItem(&self, item: Arc<dyn FuzzyItem>) {
         self.fuzzy.add_item(item);

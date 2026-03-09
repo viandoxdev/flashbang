@@ -110,16 +110,16 @@ pub struct SchedulerReview {
 
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct SchedulerItemState {
-    state: SchedulerMemoryState,
-    delay: f32,
+    pub state: SchedulerMemoryState,
+    pub delay: f32,
 }
 
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct SchedulerNextState {
-    again: SchedulerItemState,
-    hard: SchedulerItemState,
-    good: SchedulerItemState,
-    easy: SchedulerItemState,
+    pub again: SchedulerItemState,
+    pub hard: SchedulerItemState,
+    pub good: SchedulerItemState,
+    pub easy: SchedulerItemState,
 }
 
 pub struct SchedulerItem(Vec<SchedulerReview>);

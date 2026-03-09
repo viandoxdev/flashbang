@@ -1,3 +1,5 @@
+use std::error::Error;
+
 #[derive(Debug, thiserror::Error)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Error))]
 pub enum CoreError {
@@ -5,12 +7,16 @@ pub enum CoreError {
     Parsing { details: String },
     #[error("IO error: {details}")]
     IO { details: String },
+    #[cfg(feature = "github")]
     #[error("Http (Reqwest) error: {details}")]
     HTTP { details: String },
     #[error("Typst error: {details}")]
     Typst { details: String },
+    #[cfg(feature = "scheduler")]
     #[error("FSRS error: {details}")]
     FSRS { details: String },
+    #[error("Core error: {details}")]
+    Other { details: String },
 }
 
 impl<'a> From<nom::Err<nom::error::Error<&'a str>>> for CoreError {
@@ -36,6 +42,7 @@ impl From<std::io::Error> for CoreError {
     }
 }
 
+#[cfg(feature = "github")]
 impl From<reqwest::Error> for CoreError {
     fn from(value: reqwest::Error) -> Self {
         Self::HTTP {
@@ -44,6 +51,7 @@ impl From<reqwest::Error> for CoreError {
     }
 }
 
+#[cfg(feature = "scheduler")]
 impl From<fsrs::FSRSError> for CoreError {
     fn from(value: fsrs::FSRSError) -> Self {
         Self::FSRS {
@@ -52,3 +60,23 @@ impl From<fsrs::FSRSError> for CoreError {
     }
 }
 
+pub trait AsCoreError<T> {
+    fn context(self, details: Option<&str>) -> Result<T, CoreError>;
+}
+
+impl<T, E: Error> AsCoreError<T> for Result<T, E> {
+    fn context(self, details: Option<&str>) -> Result<T, CoreError> {
+        match self {
+            Ok(v) => Ok(v),
+            Err(err) => {
+                let value = if let Some(details) = details {
+                    format!("({details}) {err}")
+                } else {
+                    err.to_string()
+                };
+
+                Err(CoreError::Other { details: value })
+            }
+        }
+    }
+}

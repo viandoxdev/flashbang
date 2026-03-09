@@ -12,8 +12,8 @@ use crate::error::CoreError;
 
 #[cfg_attr(feature = "uniffi", derive(uniffi::Object))]
 pub struct HeaderInfoInner {
-    inner: String,
-    id: u64,
+    pub inner: String,
+    pub id: u64,
 }
 
 #[cfg(feature = "uniffi")]
@@ -24,18 +24,17 @@ pub struct HeaderInfo(Arc<HeaderInfoInner>);
 
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct CardInfo {
-    id: String,
-    name: String,
-    locations: Vec<String>,
-    header: Option<HeaderInfo>,
-    question: String,
-    answer: String,
+    pub id: String,
+    pub name: String,
+    pub locations: Vec<String>,
+    pub header: Option<HeaderInfo>,
+    pub question: String,
+    pub answer: String,
 }
 
 #[cfg_attr(feature = "uniffi", uniffi::export(with_foreign))]
 pub trait CardSource: Send + Sync {
     fn header_content(&self) -> Option<String>;
-    fn header_eq(&self, other: Option<Arc<dyn CardSource>>) -> bool;
     fn id(&self) -> String;
     fn name(&self) -> String;
     fn question(&self) -> String;
@@ -46,9 +45,6 @@ pub trait CardSource: Send + Sync {
 impl<T: CardSource + ?Sized> CardSource for Arc<T> {
     fn header_content(&self) -> Option<String> {
         (**self).header_content()
-    }
-    fn header_eq(&self, other: Option<Arc<dyn CardSource>>) -> bool {
-        (**self).header_eq(other)
     }
     fn id(&self) -> String {
         (**self).id()
@@ -76,6 +72,7 @@ impl HeaderInfo {
     }
 }
 
+#[cfg(feature = "uniffi")]
 #[cfg_attr(feature = "uniffi", uniffi::export)]
 impl HeaderInfoInner {
     fn content(&self) -> String {
@@ -102,6 +99,7 @@ impl PartialEq for HeaderInfo {
 /// Config for things that the source needs to compile
 #[derive(Clone, Copy)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", wasm_bindgen::prelude::wasm_bindgen)]
 pub struct SourceConfig {
     /// Page width in pt
     pub page_width: u32,
@@ -120,9 +118,9 @@ impl CardState {
 
 impl CardState {
     /// Build the source for a set of cards and a config
-    pub fn build_source(
+    pub fn build_source<C: CardSource>(
         &self,
-        cards: impl IntoIterator<Item = Arc<dyn CardSource>>,
+        cards: impl IntoIterator<Item = C>,
         config: SourceConfig,
     ) -> Result<String, CoreError> {
         const CARDS_INTERNAL: &'static str = include_str!("./cards_internal.typ");
@@ -130,7 +128,7 @@ impl CardState {
         use std::io::Write;
 
         let mut w = Vec::new();
-        let mut last_card = None;
+        let mut last_header = None;
 
         writeln!(&mut w, "{CARDS_INTERNAL}")?;
         writeln!(&mut w, "#set page(width: {}pt)", config.page_width)?;
@@ -140,8 +138,8 @@ impl CardState {
         writeln!(&mut w, "#[")?;
 
         for card in cards {
-            if !card.header_eq(last_card) {
-                let current_header = card.header_content();
+            let current_header = card.header_content();
+            if current_header != last_header {
                 writeln!(&mut w, "]")?;
                 writeln!(&mut w, "#[")?;
 
@@ -161,7 +159,7 @@ impl CardState {
             writeln!(&mut w, "#answer")?;
             write!(&mut w, "{}", card.answer())?;
 
-            last_card = Some(card);
+            last_header = current_header;
         }
 
         writeln!(&mut w, "]")?;

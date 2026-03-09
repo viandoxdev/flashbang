@@ -11,6 +11,7 @@ mod github;
 pub mod cache;
 
 pub use typst;
+#[cfg(feature = "scheduler")]
 pub use fsrs;
 
 #[cfg(feature = "uniffi")]

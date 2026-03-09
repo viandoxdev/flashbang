@@ -14,7 +14,7 @@ tar = "0.4"
 log = "0.4"
 uniffi = { version = "0.31.0", features = ["cli"] }
 android_logger = { version = "0.15", features = ["android-api-30"] }
-fb-core = { path = "../fb-core", features = [
+fb-core = { path = "../fb-core", default-features = false, features = [
     "uniffi",
     "cache",
     "scheduler",

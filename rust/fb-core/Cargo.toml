@@ -32,11 +32,12 @@ reqwest = { version = "0.12.12", default-features = false, features = [
     "charset",
     "http2",
 ], optional = true }
+wasm-bindgen = { version = "0.2", optional = true }
 
 [features]
-# TODO: Remove cache
-default = ["scheduler", "github", "cache"]
+default = ["scheduler", "github"]
 uniffi = ["dep:uniffi"]
 scheduler = ["dep:fsrs"]
 github = ["dep:reqwest"]
 cache = []
+wasm = ["dep:wasm-bindgen"]

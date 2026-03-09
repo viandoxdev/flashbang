@@ -1,8 +1,12 @@
+#[cfg(feature = "cache")]
+use std::io::Cursor;
+
+use std::io::Read;
+
 use std::{
     collections::HashMap,
     error::Error,
     fmt::{Debug, Display},
-    io::{Cursor, Read},
     path::{Path, PathBuf},
     str::FromStr,
     sync::Arc,
@@ -24,9 +28,7 @@ use typst_kit::fonts::{FontSearcher, FontSlot as TypstFontSlot};
 #[cfg(feature = "cache")]
 use crate::cache::CacheProvider;
 use crate::{
-    cards::{CardInfo, CardSource, CardState, SourceConfig},
-    error::CoreError,
-    packages::PackageProvider,
+    cards::{CardInfo, CardSource, CardState, SourceConfig}, error::CoreError, packages::PackageProvider
 };
 
 #[cfg(feature = "github")]
@@ -166,8 +168,8 @@ impl Error for LoadError {}
 
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct LoadResult {
-    cards: Vec<CardInfo>,
-    errors: Vec<LoadError>,
+    pub cards: Vec<CardInfo>,
+    pub errors: Vec<LoadError>,
 }
 
 pub struct WorldState {
@@ -223,64 +225,64 @@ impl WorldState {
             library: LazyHash::new(Library::default()),
             main: FileId::new(None, VirtualPath::new("_main.typ")),
             #[cfg(feature = "cache")]
-            cache: Box::new(cache_provider),
+            cache:Box::new(cache_provider),
         }
     }
-}
-
-fn load_from_tarball(
-    world: &WorldState,
-    cards: &CardState,
-    tarball: impl Read,
-) -> Result<LoadResult, CoreError> {
-    let decompressed = flate2::read::GzDecoder::new(tarball);
-    let mut archive = tar::Archive::new(decompressed);
-
-    let results = archive
-        .entries()?
-        .enumerate()
-        .map(|(id, entry)| -> Result<_, LoadError> {
-            let entry = entry.context(None)?;
-            let path = entry.path().context(None)?.to_path_buf();
-
-            Ok((id as u64, entry, path))
-        })
-        .filter_ok(|(_, _, path)| path.extension().and_then(|ext| ext.to_str()) == Some("typ"))
-        .map(|entry| {
-            entry.and_then(|(id, mut entry, path)| {
-                let mut content = String::new();
-                entry.read_to_string(&mut content).context(Some(&path))?;
-
-                if content.starts_with("//![FLASHBANG INCLUDE]") {
-                    let file_id = FileId::new(None, VirtualPath::new(path.pop_front()));
-                    world.load_file(FileSlot::with_source(
-                        file_id,
-                        Source::new(file_id, content),
-                    ));
-
-                    Ok(Vec::new())
-                } else {
-                    cards.parse(id, &content).context(Some(&path))
-                }
-            })
-        });
-
-    let mut load_res = LoadResult {
-        cards: Vec::new(),
-        errors: Vec::new(),
-    };
-
-    for res in results {
-        match res {
-            Ok(mut cards) => load_res.cards.append(&mut cards),
-            Err(error) => load_res.errors.push(error),
-        }
-    }
-
-    Ok(load_res)
 }
 
 impl WorldState {
+    pub fn load_from_tarball(
+        &self,
+        cards: &CardState,
+        tarball: impl Read,
+    ) -> Result<LoadResult, CoreError> {
+        let decompressed = flate2::read::GzDecoder::new(tarball);
+        let mut archive = tar::Archive::new(decompressed);
+
+        let results = archive
+            .entries()?
+            .enumerate()
+            .map(|(id, entry)| -> Result<_, LoadError> {
+                let entry = entry.context(None)?;
+                let path = entry.path().context(None)?.to_path_buf();
+
+                Ok((id as u64, entry, path))
+            })
+            .filter_ok(|(_, _, path)| path.extension().and_then(|ext| ext.to_str()) == Some("typ"))
+            .map(|entry| {
+                entry.and_then(|(id, mut entry, path)| {
+                    let mut content = String::new();
+                    entry.read_to_string(&mut content).context(Some(&path))?;
+
+                    if content.starts_with("//![FLASHBANG INCLUDE]") {
+                        let file_id = FileId::new(None, VirtualPath::new(path.pop_front()));
+                        self.load_file(FileSlot::with_source(
+                            file_id,
+                            Source::new(file_id, content),
+                        ));
+
+                        Ok(Vec::new())
+                    } else {
+                        cards.parse(id, &content).context(Some(&path))
+                    }
+                })
+            });
+
+        let mut load_res = LoadResult {
+            cards: Vec::new(),
+            errors: Vec::new(),
+        };
+
+        for res in results {
+            match res {
+                Ok(mut cards) => load_res.cards.append(&mut cards),
+                Err(error) => load_res.errors.push(error),
+            }
+        }
+
+        Ok(load_res)
+    }
+
     // Return type is like that because we can get an error and recover
     #[cfg(all(feature = "github", feature = "cache"))]
     pub fn load_from_github(
@@ -297,7 +299,7 @@ impl WorldState {
             && let Ok(tarball) = self.cache.get_tarball()
         {
             // Shas match and cache is working, use that
-            return Ok(load_from_tarball(self, cards, tarball)?);
+            return Ok(self.load_from_tarball(cards, tarball)?);
         }
 
         // shas differ or cache is broken, we need to update our cache
@@ -306,7 +308,7 @@ impl WorldState {
         self.cache.save_tarball(&mut Cursor::new(tarball.clone()))?;
         self.cache.save_sha(api.sha)?;
 
-        Ok(load_from_tarball(self, cards, Cursor::new(tarball))?)
+        Ok(self.load_from_tarball(cards, Cursor::new(tarball))?)
     }
 
     #[cfg(all(feature = "github", not(feature = "cache")))]
@@ -319,13 +321,13 @@ impl WorldState {
     ) -> Result<LoadResult, CoreError> {
         let api = GithubAPI::new(repo, branch, token)?;
         let tarball = api.get_tarball()?;
-        load_from_tarball(cards, tarball)
+        self.load_from_tarball(cards, tarball)
     }
 
-    pub fn prepare_source(
+    pub fn prepare_source<C: CardSource>(
         &self,
         cards: &CardState,
-        items: impl IntoIterator<Item = Arc<dyn CardSource>>,
+        items: impl IntoIterator<Item = C>,
         config: SourceConfig,
     ) -> Result<(), CoreError> {
         let content = cards.build_source(items, config)?;
@@ -337,7 +339,7 @@ impl WorldState {
 
         Ok(())
     }
-    pub fn compile(&self) -> Result<Vec<Arc<CardPage>>, CoreError> {
+    pub fn compile(&self) -> Result<Vec<CardPage>, CoreError> {
         let output = typst::compile::<PagedDocument>(&self)
             .output
             .map_err(|errors| CoreError::Typst {
@@ -347,7 +349,7 @@ impl WorldState {
         Ok(output
             .pages
             .into_iter()
-            .map(|p| Arc::new(CardPage(p)))
+            .map(|p| CardPage(p))
             .collect_vec())
     }
     pub fn inspect_source(&self) -> Option<String> {
@@ -369,9 +371,11 @@ impl WorldState {
 
 /// Newtype around typst::layout::Page because I need it to derive uniffi::Object
 #[cfg_attr(feature = "uniffi", derive(uniffi::Object))]
+#[cfg_attr(feature = "wasm", wasm_bindgen::prelude::wasm_bindgen)]
 pub struct CardPage(Page);
 
 #[cfg_attr(feature = "uniffi", uniffi::export)]
+#[cfg_attr(feature = "wasm", wasm_bindgen::prelude::wasm_bindgen)]
 impl CardPage {
     pub fn svg(&self) -> String {
         typst_svg::svg(&self.0)

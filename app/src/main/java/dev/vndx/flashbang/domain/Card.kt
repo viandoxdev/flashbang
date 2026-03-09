@@ -45,8 +45,6 @@ data class Card(
 ) : CardSource, FuzzyItem, Item {
     override fun headerContent(): String? = header?.content
 
-    override fun headerEq(other: CardSource?): Boolean = other?.headerContent() == header?.content
-
     override fun id(): String = id
 
     override fun name(): String = name
