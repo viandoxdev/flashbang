@@ -43,9 +43,16 @@ fn main() -> Result<(), CoreError> {
 
     let search_path = Path::new(search_path_str).canonicalize()?;
 
+    let mut excluded_paths = args[4..]
+        .iter()
+        .filter_map(|exclude| Path::new(exclude).canonicalize().ok())
+        .collect::<Vec<_>>();
+
     std::fs::create_dir_all(output_directory_str)?;
     let output_directory_path = Path::new(output_directory_str).canonicalize()?;
     let output_file_path = Path::new(output_file_str);
+
+    excluded_paths.push(output_directory_path.clone());
 
     let mut errors = Vec::<Box<dyn Error>>::new();
     let mut cards = Vec::new();
@@ -57,7 +64,7 @@ fn main() -> Result<(), CoreError> {
                 return false;
             };
 
-            can != output_directory_path
+            !excluded_paths.contains(&can)
         })
         .enumerate()
     {
@@ -97,6 +104,8 @@ fn main() -> Result<(), CoreError> {
             std::fs::write(new_path, content)?;
             continue;
         }
+
+        log::debug!("Parsing {:?}", entry.path());
 
         match card.parse(id as u64, &content) {
             Ok(new_cards) => cards.extend(new_cards.into_iter().map(Card::from)),

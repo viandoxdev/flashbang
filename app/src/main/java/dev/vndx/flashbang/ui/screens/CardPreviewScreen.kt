@@ -168,7 +168,8 @@ class CardPreviewScreen(val cardId: String) : Screen {
                         listOf(card), SourceConfig(
                             maxWidth.value.roundToInt().toUInt(),
                             preferences.preferences.cardFontSize.toUInt(),
-                            ((color.value shr 32) and 0xFFFFFFuL).toUInt()
+                            ((color.value shr 32) and 0xFFFFFFuL).toUInt(),
+                            preferences.preferences.useSansMath
                         )
                     ).filterIndexed { index, _ -> index > 0 }.map {
                         val svg = it.svg()

@@ -29,6 +29,7 @@ object PreferencesSerializer : Serializer<Preferences> {
             .setBranch("main")
             .setDateFormat(DateFormat.DATE_FORMAT_SLASH_D_M_YY)
             .setCardFontSize(14)
+            .setUseSansMath(true)
             .build()
 
     override suspend fun readFrom(input: InputStream): Preferences {

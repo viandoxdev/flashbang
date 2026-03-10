@@ -155,6 +155,12 @@ open class SettingsScreen : Screen {
                     }
                 )
             }
+            item {
+                SettingsSwitch(
+                    title = stringResource(R.string.use_sans_math),
+                    checked = preferences.useSansMath,
+                    onCheckedChange = { vm.update { setUseSansMath(it) } })
+            }
         }
     }
 

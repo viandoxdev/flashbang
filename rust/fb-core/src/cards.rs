@@ -106,6 +106,21 @@ pub struct SourceConfig {
     // Text size in pt
     pub text_size: u32,
     pub text_color: u32,
+    pub sans_math: bool,
+}
+
+#[cfg(feature = "wasm")]
+#[cfg_attr(feature = "wasm", wasm_bindgen::prelude::wasm_bindgen)]
+impl SourceConfig {
+    #[wasm_bindgen::prelude::wasm_bindgen(constructor)]
+    pub fn new(page_width: u32, text_size: u32, text_color: u32, sans_math: bool) -> Self {
+        Self {
+            page_width,
+            text_size,
+            text_color,
+            sans_math,
+        }
+    }
 }
 
 pub struct CardState {}
@@ -135,6 +150,11 @@ impl CardState {
         writeln!(&mut w, "#let _colors = (text: rgb(\"#{:06X}\"))", config.text_color)?;
         writeln!(&mut w, "#let _sizes = (text: {}pt)", config.text_size)?;
         writeln!(&mut w, "#set text(size: _sizes.text, fill: _colors.text)")?;
+
+        if config.sans_math {
+            writeln!(&mut w, "#show math.equation: set text(font: \"Noto Sans Math\")")?;
+        }
+
         writeln!(&mut w, "#[")?;
 
         for card in cards {

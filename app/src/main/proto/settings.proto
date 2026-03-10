@@ -32,4 +32,6 @@ message Preferences {
   DateFormat date_format = 6;
 
   int32 card_font_size = 7;
+
+  bool use_sans_math = 8;
 }

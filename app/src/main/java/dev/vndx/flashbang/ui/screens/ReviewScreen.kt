@@ -154,7 +154,8 @@ class ReviewScreen(val study: Study) : Screen {
                                 cardSources, SourceConfig(
                                     maxWidth.value.roundToInt().toUInt(),
                                     preferences.preferences.cardFontSize.toUInt(),
-                                    ((color.value shr 32) and 0xFFFFFFuL).toUInt()
+                                    ((color.value shr 32) and 0xFFFFFFuL).toUInt(),
+                                    preferences.preferences.useSansMath
                                 )
                             ).filterIndexed { index, _ -> index > 0 }.map {
                                 ImageRequest.Builder(context)
