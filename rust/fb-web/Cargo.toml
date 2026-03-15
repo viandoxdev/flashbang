@@ -9,8 +9,16 @@ crate-type = ["cdylib"]
 [dependencies]
 wasm-bindgen = "0.2"
 zip = { version = "8.2", features = ["deflate"] }
-fb-core = { path = "../fb-core", default-features = false, features = ["wasm"] }
+fb-core = { path = "../fb-core", default-features = false, features = ["wasm", "compile"] }
 parking_lot = "0.12"
 console_error_panic_hook = "0.1"
 log = "0.4"
 console_log = "1.0"
+
+[package.metadata.wasm-pack.profile.custom]
+wasm-opt = [
+    '-O',
+    '--enable-bulk-memory',
+    '--enable-sign-ext',
+    '--enable-nontrapping-float-to-int',
+]

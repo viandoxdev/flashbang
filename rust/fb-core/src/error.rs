@@ -10,6 +10,7 @@ pub enum CoreError {
     #[cfg(feature = "github")]
     #[error("Http (Reqwest) error: {details}")]
     HTTP { details: String },
+    #[cfg(feature = "compile")]
     #[error("Typst error: {details}")]
     Typst { details: String },
     #[cfg(feature = "scheduler")]

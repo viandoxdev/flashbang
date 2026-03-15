@@ -1,4 +1,4 @@
 #!/bin/bash
 
-wasm-pack build --target bundler --release --out-dir pkg
+wasm-pack build --target bundler --profile release-web --out-dir pkg
 zip -r wasm-bundle.zip pkg/

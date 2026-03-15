@@ -1,3 +1,13 @@
 [workspace]
 resolver = "2"
 members = ["fb-core", "fb-web", "fb-android", "fb-cli"]
+
+[profile.release]
+lto = false
+
+[profile.release-web]
+inherits = "release"
+lto = true
+strip = true
+opt-level = "s"
+panic = "abort"
